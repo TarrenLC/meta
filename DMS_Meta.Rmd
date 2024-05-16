@@ -94,10 +94,10 @@ compute_es <- function(preference) {
     # add point-biserial correlation and its variance (Soper's 'exact' equation) 
     # to dataset for avoidance
     smd_dat_av <- escalc(measure = "RPB",
-                    m1i = young_adults_avoidance_mean|adolescents_younger_avoidance_mean, 
-                    m2i = young_adults_avoidance_sd|adolescents_younger_avoidance_sd,
-                    sd1i = older_adults_avoidance_mean|adolescents_older_avoidance_mean,
-                    sd2i = older_adults_avoidance_sd|adolescents_older_avoidance_sd,
+                    m1i = c(young_adults_avoidance_mean,adolescents_younger_avoidance_mean), 
+                    m2i = c(young_adults_avoidance_sd,adolescents_younger_avoidance_sd),
+                    sd1i = c(older_adults_avoidance_mean,adolescents_older_avoidance_mean),
+                    sd2i = c(older_adults_avoidance_sd,adolescents_older_avoidance_sd),
                     n1i = number_of_older_adults_categorical_var_study_1,
                     n2i = number_of_young_adults_categorical_var_study_1,
                     dat = smd_dat_av,
@@ -119,9 +119,9 @@ compute_es <- function(preference) {
   
   # add yi=ri and vi (sampling variances) to dataset for avoidance
   cor_dat_av <- escalc(measure = 'COR',
-                    ri = avoidance_age_result|age_avoidance_group_1_result|
-                      age_avoidance_group_2_result|female_age_avoidance_result|
-                      male_age_result,
+                    ri = c(avoidance_age_result,age_avoidance_group_1_result,
+                      age_avoidance_group_2_result,female_age_avoidance_result,
+                      male_age_result),
                     ni = total_number_of_participants_study_1,
                     vtype = "LS",
                     data = cor_dat_av)
@@ -192,8 +192,8 @@ compute_es <- function(preference) {
   
     # add yi=ri and vi (sampling variances) to dataset for dependence
   cor_dat_dp <- escalc(measure = 'COR',
-                    ri = dependent_age_result|female_age_dependence_result|
-                      male_age_dependence_result, 
+                    ri = c(dependent_age_result,female_age_dependence_result,
+                      male_age_dependence_result), 
                     ni = total_number_of_participants_study_1,
                     vtype = "LS",
                     data = cor_dat_dp)
