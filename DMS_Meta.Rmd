@@ -65,6 +65,9 @@ df1 <- df1 %>% rename(sample_type = population_description_study_1)
 
 df1 <- df1 %>% rename(analysis = analysis_type_study_1_avoidant_dv)
 
+df1 <- df1 %>% mutate_all(na_if, "")
+
+
 ```
 
 
@@ -94,15 +97,29 @@ compute_es <- function(preference) {
     # add point-biserial correlation and its variance (Soper's 'exact' equation) 
     # to dataset for avoidance
     smd_dat_av <- escalc(measure = "RPB",
-                    m1i = c(young_adults_avoidance_mean,adolescents_younger_avoidance_mean), 
-                    m2i = c(young_adults_avoidance_sd,adolescents_younger_avoidance_sd),
-                    sd1i = c(older_adults_avoidance_mean,adolescents_older_avoidance_mean),
-                    sd2i = c(older_adults_avoidance_sd,adolescents_older_avoidance_sd),
+                    m1i = young_adults_avoidance_mean, 
+                    m2i = young_adults_avoidance_sd,
+                    sd1i = older_adults_avoidance_mean,,
+                    sd2i = older_adults_avoidance_sd,,
                     n1i = number_of_older_adults_categorical_var_study_1,
                     n2i = number_of_young_adults_categorical_var_study_1,
                     dat = smd_dat_av,
                     vtype = "LS",
                     replace=FALSE)
+    
+     #smd_dat_av_ado <- df1 %>% 
+    #filter(age_variable_study_1 %in% c("Categorical (young/older groups")|
+           #  groups == "Young/older adolescents")
+    
+  #  smd_dat_av_ado <- escalc(measure = "RPB",   #                 m1i = adolescents_younger_avoidance_mean, 
+     #              m2i = adolescents_younger_avoidance_sd,
+     #              sd1i = adolescents_older_avoidance_mean,
+     #              sd2i = adolescents_older_avoidance_sd,
+     #              n1i = number_of_older_adults_categorical_var_study_1,
+     #              n2i = number_of_young_adults_categorical_var_study_1,
+     #              dat = smd_dat_av_ado,
+     #             vtype = "LS",
+     #             replace=FALSE)
     
     smd_dat_av <- smd_dat_av %>% 
     # calculate age difference in decades (mean or midpoint in age range)
@@ -110,21 +127,52 @@ compute_es <- function(preference) {
                                 TRUE ~ .1*(((min_age_older+max_age_older)/2) - ((min_age_young+max_age_young)/2))),
            cor_type = "RPB")
     
+
+    
+    
+ 
     
       #####################################################_
   
   # correlations
      cor_dat_av <- df1 %>% 
-    filter(analysis_type_study_1_avoidant_dv == "Correlation") # use correlations from extreme group designs if available
+    filter(analysis == "Correlation") # use correlations from extreme group designs if available
   
   # add yi=ri and vi (sampling variances) to dataset for avoidance
   cor_dat_av <- escalc(measure = 'COR',
-                    ri = c(avoidance_age_result,age_avoidance_group_1_result,
-                      age_avoidance_group_2_result,female_age_avoidance_result,
-                      male_age_result),
+                    ri = avoidance_age_result,
                     ni = total_number_of_participants_study_1,
                     vtype = "LS",
                     data = cor_dat_av)
+  
+  cor_dat_av_grs <- df1 %>% # For correlations from groups
+    filter(!is.na(age_avoidance_group_1_result))
+  
+  cor_dat_av_grs$ri = c(cor_dat_av_grs$age_avoidance_group_1_result,
+                                               cor_dat_av_grs$age_avoidance_group_2_result)
+  cor_dat_av_grs$ni = c(cor_dat_av_grs$total_n_group_1,
+                                               cor_dat_av_grs$total_n_group_2)
+  
+  cor_dat_av_grs <- escalc(measure = 'COR',
+                    ri = ri,
+                    ni = ni,
+                    vtype = "LS",
+                    data = cor_dat_av_grs)
+  
+  cor_dat_av_gds <- df1 %>% # For correlations on genders
+    filter(!is.na(female_age_avoidance_result)) 
+  
+  cor_dat_av_gds$ri = c(cor_dat_av_gds$female_age_avoidance_result,
+                                               cor_dat_av_gds$male_age_result)
+  cor_dat_av_gds$ni = c(cor_dat_av_gds$total_n_men,
+                                               cor_dat_av_gds$total_n_women)
+    
+  cor_dat_av_gds <- escalc(measure = 'COR',
+                    ri = ri,
+                    ni = ni,
+                    vtype = "LS",
+                    data = cor_dat_av_gds)
+  
     
   cor_dat_av <-  cor_dat_av %>% 
     # calculate age difference in decades
@@ -136,7 +184,8 @@ compute_es <- function(preference) {
   
   
    # bind avoidance data frames
-  es_av <- bind_rows(smd_dat_av, cor_dat_av) %>% 
+  es_av <- bind_rows(smd_dat_av, smd_dat_av_ado, cor_dat_av, #cor_dat_av_grs,
+                     cor_dat_av_gds) %>% 
     select(study_id, yi, vi, cor_type, age_variable_study_1, dec_diff) %>% 
     rename(cor_yi_av = yi,
            cor_vi_av = vi) %>% 
@@ -173,8 +222,8 @@ compute_es <- function(preference) {
                     dat = smd_dat_dp,
                     vtype = "LS",
                     replace=FALSE)
-  
-  
+    
+
   
     smd_dat_dp <- smd_dat_dp %>% 
     # calculate age difference in decades (mean or midpoint in age range)
@@ -188,17 +237,28 @@ compute_es <- function(preference) {
  
   
    cor_dat_dp <- df1 %>% 
-    filter(analysis_type_study_1_avoidant_dv == "Correlation") # use correlations from extreme group designs if available
+    filter(analysis == "Correlation") # use correlations from extreme group designs if available
   
     # add yi=ri and vi (sampling variances) to dataset for dependence
   cor_dat_dp <- escalc(measure = 'COR',
-                    ri = c(dependent_age_result,female_age_dependence_result,
-                      male_age_dependence_result), 
+                    ri = dependent_age_result, 
                     ni = total_number_of_participants_study_1,
                     vtype = "LS",
                     data = cor_dat_dp)
   
+  cor_dat_dp_gds <- df1 %>% # for correlations on genders
+    filter(!is.na(female_age_dependence_result)) 
   
+  cor_dat_dp_gds$ri = c(cor_dat_dp_gds$female_age_dependence_resultt,
+                                               cor_dat_dp_gds$male_age_dependence_result)
+  cor_dat_dp_gds$ni = c(cor_dat_dp_gds$total_n_men,
+                                               cor_dat_dp_gds$total_n_women)
+  
+  cor_dat_dp_gds <- escalc(measure = 'COR',
+                    ri = ri, 
+                    ni = ni,
+                    vtype = "LS",
+                    data = cor_dat_dp_gds)
   
   
     cor_dat_dp <-  cor_dat_dp %>% 
@@ -212,7 +272,7 @@ compute_es <- function(preference) {
   
 
   # bind dependence data frames
-  es_dp <- bind_rows(smd_dat_dp, cor_dat_dp) %>% 
+  es_dp <- bind_rows(smd_dat_dp, cor_dat_dp_gds, cor_dat_dp) %>% 
     select(study_id, yi, vi, cor_type, age_variable_study_1, dec_diff) %>% 
     rename(cor_yi_dp = yi,
            cor_vi_dp = vi) %>% 
@@ -237,9 +297,10 @@ compute_es <- function(preference) {
              culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
              culture_indulgence, topic, sample_type, groups, analysis, total_number_of_participants_study_1,
              number_of_older_adults_categorical_var_study_1, number_of_young_adults_categorical_var_study_1,
-             total_n_group_1, total_n_group_, n_incl_es_av, n_incl_es_dp, gender_female_value,
+             total_n_group_1, total_n_group_2, total_n_men, total_n_women, 
+             n_incl_es_av, n_incl_es_dp, gender_female_value,
              gender_female_group_1, gender_female_group_2, age_m_young_adults, 
-             age_m_older_adults, age_m_value, age_m_group_1, age_m_group_2,
+             age_m_older_adults, age_m_value, age_m_group_1, age_m_group_2, age_m_men, age_m_women,
              min_age_young, min_age_older, min_age, min_age_group_1, min_age_group_2,
              max_age_young, max_age_older, max_age, max_age_group_1, max_age_group_2,
              dec_diff_av, dec_diff_dp, young_adults_dependence_mean, young_adults_avoidance_sd,
