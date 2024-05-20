@@ -277,7 +277,7 @@ compute_es <- function(data) {
    es_dat_av <- es_av %>% 
       # assign a number to each study label
       mutate(study_id_1 = cur_group_id()) %>% 
-      select(study_id, study_id_1, year_of_publication, country, measure, analysis,
+      select(study_id, study_id_1, title, year_of_publication, country, measure, analysis,
              culture_powerdistance, culture_individualism, culture_mtas,
              culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
              culture_indulgence, topic, sample_type, groups, analysis, total_number_of_participants_study_1,
@@ -294,7 +294,7 @@ compute_es <- function(data) {
      es_dat_dp <- es_dp %>% 
       # assign a number to each study label
       mutate(study_id_1 = cur_group_id()) %>% 
-      select(study_id, study_id_1, year_of_publication, country, measure, analysis,
+      select(study_id, study_id_1, title, year_of_publication, country, measure, analysis,
              culture_powerdistance, culture_individualism, culture_mtas,
              culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
              culture_indulgence, topic, sample_type, groups, analysis, total_number_of_participants_study_1,
@@ -309,6 +309,11 @@ compute_es <- function(data) {
              es_id_dp, n_incl_es_dp, reversed_es_dp, author_extract)
   
      all_es_dat <- es_dat_av %>% left_join(es_dat_dp)
+     
+     all_es_dat$study_id_2 = all_es_dat$study_id
+     
+     all_es_dat <- all_es_dat %>% 
+       separate(study_id_2, c("first_author", "year", "section"), " ")
   
    write_csv(all_es_dat, file = "effect_sizes.csv")
   
@@ -335,31 +340,32 @@ compute_es(df2)
 
 table_es_overview <- function(dat) {
 
-  dat <- dat %>%  
-    mutate(pub_study = paste0(title, tolower(paper_section)))
+  dat <- dat %>%
+    mutate(pub_study = paste0(title, tolower(section)))
   
-  
-  # AVOIDANCE ---------------------
+
   dat_n <- dat %>% 
-    distinct(study_label, n_incl_es, sample_code,pub_study) %>% 
-    group_by(study_label, sample_code) %>%  
+    distinct(study_id, n_incl_es_av, n_incl_es_dp, pub_study) %>% 
+    group_by(study_id) %>%  
     # within studies even if a sample completed the same task, some data points 
     # might go missing, so we select the highest number recorded within a same sample
-    filter(n_incl_es == max(n_incl_es)) %>% 
-    ungroup()
+    filter(n_incl_es_av == max(n_incl_es_av)) %>% 
+    ungroup() 
   
-  # for risk there is an exception, in Sproten experiment 2 = experiment 1 subsample
+  
   
   t <-  tibble(
-    preference = unique(dat$pref),
-    n_publications =  length(unique(paste0(dat$title_of_article, dat$first_author))),
+    n_publications =  length(unique(paste0(dat$title, dat$first_author))),
     n_studies = length(unique(dat$pub_study)),
     n_es = nrow(dat),
-    n_participants = sum(dat_n$n_incl_es),
-    pub_range = paste0(as.character(min(dat$year_of_publication))," - ", as.character(max(dat$year_of_publication))))
+    n_participants_avoidance = sum(dat_n$n_incl_es_av),
+    n_participants_dependence = sum(dat_n$n_incl_es_dp),
+    pub_range = paste0(as.character(min(dat$year))," - ", as.character(max(dat$year))))
 
   
   return(t)
+  
+  
   
 }
 
@@ -367,6 +373,61 @@ table_es_overview <- function(dat) {
 ```
 
 
+```{r}
+
+dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
+
+dat_av1 <- dat %>% 
+  ggplot(aes(x= cor_yi_av)) + 
+  geom_density() +
+  theme_bw() +
+  ggtitle("Estimate")
+
+dat_av2 <- dat %>% 
+  ggplot(aes(x= cor_vi_av)) + 
+  geom_density() +
+  theme_bw() +
+  ggtitle("Estimate")
+
+dat_av3 <- dat %>% 
+  ggplot(aes(x= log10(n_incl_es_av))) + 
+  geom_density() +
+  theme_bw() +
+  ggtitle("Sample")
+
+dat_av4 <- dat %>% 
+  ggplot(aes(x= dec_diff_av)) + 
+  geom_density() +
+  theme_bw() +
+  ggtitle("Sample age Differences (decades)")
+
+dat_dp1 <- dat %>% 
+  ggplot(aes(x= cor_yi_dp)) + 
+  geom_density() +
+  theme_bw() +
+  ggtitle("Estimate")
+
+dat_dp2 <- dat %>% 
+  ggplot(aes(x= cor_vi_dp)) + 
+  geom_density() +
+  theme_bw() +
+  ggtitle("Estimate")
+
+dat_dp3 <- dat %>% 
+  ggplot(aes(x= log10(n_incl_es_dp))) + 
+  geom_density() +
+  theme_bw() +
+  ggtitle("Sample")
+
+dat_dp4 <- dat %>% 
+  ggplot(aes(x= dec_diff_dp)) + 
+  geom_density() +
+  theme_bw() +
+  ggtitle("Sample age Differences (decades)")
+
+table1 <- table_es_overview(dat)
+
+```
 
 
 
