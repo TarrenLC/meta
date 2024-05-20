@@ -167,13 +167,16 @@ compute_es <- function(data) {
                                  analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
    
    # Reverse effect sizes
-      rowwise() %>% 
-      mutate(reversed_es = case_when(study_label %in% c("Hess (2021)", "McLaughlin (2021)",
-                                                        "Westbrook experiment 2 (2013)", "Westbrook experiment 1 (2013)") ~ 1, 
-                                     TRUE ~ 0),
-             cor_yi = case_when(reversed_es == 1  ~ cor_yi*-1, 
-                                reversed_es == 0 ~ cor_yi )) %>% 
-   
+      es_av <- es_av %>% 
+        rowwise() %>% 
+        mutate(reversed_es_av = case_when(!is.na(young_adults_avoidance_mean) 
+                                          & !is.na(older_adults_avoidance_mean) &
+                                            young_adults_avoidance_mean > older_adults_avoidance_mean ~ 1,
+                                          !is.na(avoidance_age_result) & avoidance_age_result < 0 ~ 1,
+                                          TRUE ~ 0))
+      
+      es_av <- es_av %>%
+        mutate(cor_yi_av = ifelse(reversed_es_av == 1, cor_yi_av * -1, cor_yi_av))
    
 #  }
   
@@ -208,7 +211,8 @@ compute_es <- function(data) {
     mutate(dec_diff_dp = case_when(!is.na(age_m_young_adults) &!is.na(age_m_older_adults) ~ .1*(age_m_older_adults-age_m_young_adults),
                                 TRUE ~ .1*(((min_age_older+max_age_older)/2) - ((min_age_young+max_age_young)/2))),
            cor_type = "RPB")
-  
+    
+ 
    #####################################################_
   
   # correlations
@@ -238,14 +242,30 @@ compute_es <- function(data) {
     select(study_id, yi, vi, cor_type, age_variable_study_1, dec_diff_dp) %>% 
     rename(cor_yi_dp = yi,
            cor_vi_dp = vi) %>% 
-    full_join(df1, by = c("study_id", "age_variable_study_1"))  %>% 
+    full_join(df1, by = c("study_id", "age_variable_study_1")) %>% 
     mutate(author_extract = "Leon",
-      es_id_dp = 1:n(),  
-           # number of participants included in the ES calculation
+           es_id_dp = 1:n(),
+  # number of participants included in the ES calculation
            n_incl_es_dp = case_when(analysis == "Correlation" ~ total_number_of_participants_study_1,
                                  # extreme group comparison included old vs. young differences
                                  analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
+    
   
+  
+     # Reverse effect sizes
+      es_dp <- es_dp %>% 
+        rowwise() %>% 
+        mutate(reversed_es_dp = case_when(!is.na(young_adults_dependence_mean) 
+                                          & !is.na(older_adults_dependence_mean) &
+                                            young_adults_dependence_mean > older_adults_dependence_mean ~ 1,
+                                          !is.na(dependent_age_result) & dependent_age_result < 0 ~ 1,
+                                          TRUE ~ 0))
+      
+      es_dp <- es_dp %>% 
+        mutate(cor_yi_dp = case_when(reversed_es_dp == 1  ~ cor_yi_dp*-1, 
+                                reversed_es_dp == 0 ~cor_yi_dp))
+
+      
 #  }
   
   
@@ -256,7 +276,7 @@ compute_es <- function(data) {
   
    es_dat_av <- es_av %>% 
       # assign a number to each study label
-      mutate(study_id = cur_group_id()) %>% 
+      mutate(study_id_1 = cur_group_id()) %>% 
       select(study_id, study_id_1, year_of_publication, country, measure, analysis,
              culture_powerdistance, culture_individualism, culture_mtas,
              culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
@@ -269,11 +289,11 @@ compute_es <- function(data) {
              dec_diff_av, young_adults_avoidance_mean, young_adults_avoidance_sd,
              older_adults_avoidance_mean, older_adults_avoidance_sd,
              avoidance_age_result, cor_yi_av, cor_vi_av, cor_type,
-             es_id_av, n_incl_es_av, author_extract)
+             es_id_av, n_incl_es_av, reversed_es_av, author_extract)
    
      es_dat_dp <- es_dp %>% 
       # assign a number to each study label
-      mutate(study_id = cur_group_id()) %>% 
+      mutate(study_id_1 = cur_group_id()) %>% 
       select(study_id, study_id_1, year_of_publication, country, measure, analysis,
              culture_powerdistance, culture_individualism, culture_mtas,
              culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
@@ -286,7 +306,7 @@ compute_es <- function(data) {
              young_adults_dependence_mean, young_adults_dependence_sd, 
              older_adults_dependence_mean, older_adults_dependence_sd,
              dependent_age_result, cor_yi_dp, cor_vi_dp, cor_type, 
-             es_id_dp, n_incl_es_dp, author_extract)
+             es_id_dp, n_incl_es_dp, reversed_es_dp, author_extract)
   
      all_es_dat <- es_dat_av %>% left_join(es_dat_dp)
   
