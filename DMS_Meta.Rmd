@@ -90,8 +90,7 @@ compute_es <- function(data) {
  # if (preference == "avoidance") {
    # means and SDS (young vs. old)
   smd_dat_av <- df1 %>% 
-    filter(age_variable_study_1 %in% c("Categorical (young/older groups")|
-             groups == "Young/older adolescents")
+    filter(analysis == "Ms and SDs")
   
     # add point-biserial correlation and its variance (Soper's 'exact' equation) 
     # to dataset for avoidance
@@ -163,9 +162,19 @@ compute_es <- function(data) {
     mutate(author_extract = "Leon",
       es_id_av = 1:n(),  
            # number of participants included in the ES calculation
-          n_incl_es_av = case_when(age_variable_study_1 %in% "Continuous" ~ total_number_of_participants_study_1,
+          n_incl_es_av = case_when(analysis == "Correlation" ~ total_number_of_participants_study_1,
                                  # extreme group comparison included old vs. young differences
-                                 age_variable_study_1!= "Continous" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
+                                 analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
+   
+   # Reverse effect sizes
+      rowwise() %>% 
+      mutate(reversed_es = case_when(study_label %in% c("Hess (2021)", "McLaughlin (2021)",
+                                                        "Westbrook experiment 2 (2013)", "Westbrook experiment 1 (2013)") ~ 1, 
+                                     TRUE ~ 0),
+             cor_yi = case_when(reversed_es == 1  ~ cor_yi*-1, 
+                                reversed_es == 0 ~ cor_yi )) %>% 
+   
+   
 #  }
   
   # EFFECT SIZES ----------------------------------------------------------
@@ -176,8 +185,7 @@ compute_es <- function(data) {
   
     # means and SDS (young vs. old)
   smd_dat_dp <- df1 %>% 
-    filter(age_variable_study_1 %in% c("Categorical (young/older groups")|
-             groups == "Young/older adolescents")
+    filter(analysis == "Ms and SDs")
   
   
   # add point-biserial correlation and its variance (Soper's 'exact' equation) 
@@ -234,9 +242,9 @@ compute_es <- function(data) {
     mutate(author_extract = "Leon",
       es_id_dp = 1:n(),  
            # number of participants included in the ES calculation
-           n_incl_es_dp = case_when(age_variable_study_1 %in% "Continuous" ~ total_number_of_participants_study_1,
+           n_incl_es_dp = case_when(analysis == "Correlation" ~ total_number_of_participants_study_1,
                                  # extreme group comparison included old vs. young differences
-                                 age_variable_study_1!= "Continous" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
+                                 analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
   
 #  }
   
@@ -254,14 +262,12 @@ compute_es <- function(data) {
              culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
              culture_indulgence, topic, sample_type, groups, analysis, total_number_of_participants_study_1,
              number_of_older_adults_categorical_var_study_1, number_of_young_adults_categorical_var_study_1,
-             n_incl_es_av, gender_female_value,
+             gender_female_value,
              age_m_young_adults, age_m_older_adults, age_m_value, 
              min_age_young, min_age_older, min_age, 
              max_age_young, max_age_older, max_age, 
-             dec_diff_av, young_adults_avoidance_sd,
-             adolescents_younger_avoidance_mean, adolescents_younger_avoidance_sd,
-             older_adults_avoidance_mean, adolescents_older_avoidance_mean, 
-             older_adults_avoidance_sd, adolescents_older_avoidance_sd, 
+             dec_diff_av, young_adults_avoidance_mean, young_adults_avoidance_sd,
+             older_adults_avoidance_mean, older_adults_avoidance_sd,
              avoidance_age_result, cor_yi_av, cor_vi_av, cor_type,
              es_id_av, n_incl_es_av, author_extract)
    
@@ -272,8 +278,7 @@ compute_es <- function(data) {
              culture_powerdistance, culture_individualism, culture_mtas,
              culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
              culture_indulgence, topic, sample_type, groups, analysis, total_number_of_participants_study_1,
-             number_of_older_adults_categorical_var_study_1, number_of_young_adults_categorical_var_study_1,
-             n_incl_es_dp, gender_female_value,
+             number_of_older_adults_categorical_var_study_1, number_of_young_adults_categorical_var_study_1, gender_female_value,
              age_m_young_adults, age_m_older_adults, age_m_value, 
              min_age_young, min_age_older, min_age, 
              max_age_young, max_age_older, max_age, 
@@ -283,7 +288,7 @@ compute_es <- function(data) {
              dependent_age_result, cor_yi_dp, cor_vi_dp, cor_type, 
              es_id_dp, n_incl_es_dp, author_extract)
   
-     all_es_dat <- es_dat_av %>% full_join(es_dat_dp)
+     all_es_dat <- es_dat_av %>% left_join(es_dat_dp)
   
    write_csv(all_es_dat, file = "effect_sizes.csv")
   
@@ -314,6 +319,7 @@ table_es_overview <- function(dat) {
     mutate(pub_study = paste0(title, tolower(paper_section)))
   
   
+  # AVOIDANCE ---------------------
   dat_n <- dat %>% 
     distinct(study_label, n_incl_es, sample_code,pub_study) %>% 
     group_by(study_label, sample_code) %>%  
