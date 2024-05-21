@@ -119,8 +119,9 @@ compute_es <- function(data) {
      #             replace=FALSE)
     
     smd_dat <- smd_dat %>% 
+      filter(analysis == "Ms and SDs") %>% 
     # calculate age difference in decades (mean or midpoint in age range)
-    mutate(dec_diff = case_when(!is.na(age_m_young_adults) &!is.na(age_m_older_adults) ~ .1*(age_m_older_adults-age_m_young_adults),
+      mutate(dec_diff = case_when(!is.na(age_m_young_adults) &!is.na(age_m_older_adults) ~ .1*(age_m_older_adults-age_m_young_adults),
                                 TRUE ~ .1*(((min_age_older+max_age_older)/2) - ((min_age_young+max_age_young)/2))),
            cor_type = "RPB")
     
@@ -133,7 +134,7 @@ compute_es <- function(data) {
   
   # avoidance correlations 
      cor_dat <- df1 %>% 
-    filter(analysis == "Correlation") # use correlations from extreme group designs if available
+    filter(analysis %in% c("Correlation", "Both")) # use correlations from extreme group designs if available
   
   # add yi=ri and vi (sampling variances) to dataset for avoidance
   cor_dat <- escalc(measure = 'COR',
@@ -147,8 +148,14 @@ compute_es <- function(data) {
 
   cor_dat <-  cor_dat %>% 
     # calculate age difference in decades
-    mutate(cor_type = "COR") %>% 
-    mutate(dec_diff_av =  .1*(max_age - min_age))
+     mutate(age_min = case_when(analysis == "Both" ~ as.numeric(min_age_young),
+                               TRUE ~ min_age), # in case age min/max info is unavailable
+            age_max = case_when(analysis == "Both" ~ as.numeric(max_age_older),
+                               TRUE ~ as.numeric(max_age)),   # in case age min/max info is unavailable
+           cor_type = "COR",
+           study_design = case_when(analysis == "Both" ~"extreme_group",
+                                    analysis == "Corrleation" ~ "continuous")) %>% 
+    mutate(dec_diff =  .1*(max_age - min_age))
   
   
   
@@ -161,7 +168,7 @@ compute_es <- function(data) {
     mutate(author_extract = "Leon",
       es_id = 1:n(),  
            # number of participants included in the ES calculation
-          n_incl_es = case_when(analysis == "Correlation" ~ total_number_of_participants_study_1,
+          n_incl_es = case_when(analysis %in% "Correlation" ~ total_number_of_participants_study_1,
                                  # extreme group comparison included old vs. young differences
                                  analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
    
@@ -191,8 +198,10 @@ compute_es <- function(data) {
   
   
    es_dat <- es %>% 
+         group_by(study_id) %>% 
+        mutate(study_es_id = 1:n()) %>% # create id for effect sizes within each study
+        ungroup() %>% 
       # assign a number to each study label
-      mutate(study_id_1 = cur_group_id()) %>% 
       select(study_id, study_id_1, title, year_of_publication, country, measure, 
              dv, analysis,
              culture_powerdistance, culture_individualism, culture_mtas,
