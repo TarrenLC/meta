@@ -14,6 +14,8 @@ library(tidyverse) # data wrangling
 library(janitor) # clean column names
 library(metafor) # compute effect sizes
 library(effectsize)# compute effect sizes
+library(clubSandwich)
+library(TOSTER)
 
 ```
 
@@ -73,6 +75,7 @@ write.csv(df1, file = "prepped_meta_data.csv")
 
 
 # Compute Effect Sizes
+## Function
 ```{r}
 
 #' `compute_es()` creates "effect_sizes_pref.csv", by computing standardized effect sizes using the outcomes 
@@ -173,7 +176,11 @@ compute_es <- function(data) {
                                  analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
    
    # Reverse effect sizes
-      es <- es %>% 
+      es <- es %>%  
+        group_by(study_id) %>% 
+      # assign a number to each study
+       mutate(study_id_1 = cur_group_id()) %>% 
+        ungroup() %>% 
         rowwise() %>% 
         mutate(reversed_es = case_when(!is.na(young_adults_dv_mean) 
                                           & !is.na(older_adults_dv_mean) &
@@ -233,7 +240,7 @@ compute_es <- function(data) {
              
 ```
 
-
+## Compute effect sizes for data
 ```{r}
 
 
@@ -244,7 +251,8 @@ compute_es(df2)
 ```
 
 
-# Visualisation
+# Overview and visualisation
+## Table function
 ```{r}
 
 table_es_overview <- function(dat) {
@@ -280,7 +288,7 @@ table_es_overview <- function(dat) {
 
 ```
 
-
+## Visualisation and overview table of data
 ```{r}
 
 dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
@@ -318,5 +326,381 @@ table1
 ```
 
 
+# Analyses
+## MLMA function
+```{r}
+
+#' `conduct_mlma()` computes a pooled effect size using the information from "effect_sizes.csv" by 
+#' fitting a three-level meta-analytic model. 
+#' Follows recommendations from: https://wviechtb.github.io/metafor/reference/misc-recs.html?q=sandw#details
+#' @param dat A data frame containing effect sizes (i.e., "effect_sizes_pref.csv")
+#' @param rho value of the correlation of the sampling errors within clusters
+#' @returns a metafor rma.mv object.
+#' @examples
+
+
+
+
+# library(tidyverse) # for data wrangling
+# library(metafor) # compute effect sizes
+
+
+conduct_mlma <- function(dat, rho) {
+  
+  # transform data into an escalc object
+  dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat )
+  dat$study_id_1 <- as.character(dat$study_id_1)
+  dat$es_id <- as.character(dat$es_id)
+  
+  ### create approx. V matrix assuming that the effect sizes within studies
+  ###  are correlated with a correlation coefficient of value 'rho'
+  V_mat <- vcalc(vi = vi,
+                 cluster = study_id_1,
+                 obs = es_id,
+                 data = dat,
+                 rho = rho)
+  
+  ### fit multilevel model using the approximate V matrix
+  res <- rma.mv(yi = yi,
+                V = V_mat,
+                random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                data=dat,
+                # test = "t",
+                # dfs="contain",
+                control=list(iter.max=100)) 
+  
+  return(res)
+  
+}
+
+
+```
+
+## Sensitivity function
+```{r}
+#' `conduct_sensitivity_rho()` computes a pooled effect size using the information from "effect_sizes.csv" by 
+#' fitting a multilevel meta-analytic model (applying robust variance estimation) and using different values of rho.
+#' @param dat A data frame containing effect sizes (i.e., "effect_sizes.csv")
+#' @param rho_vec numeric vector of values of the correlation of the sampling errors within clusters
+#' @returns  a data frame with summary information of the pooled estimates
+#' @examples
+
+
+
+
+# library(tidyverse) # for data wrangling
+# library(metafor) # compute effect sizes
+
+
+conduct_sensitivity_rho <- function(dat, rho_vec) {
+  
+  # get the mlma function
+  source("code/functions/conduct_mlma.R")
+  
+  # object to store output
+  m <- NULL
+  
+  
+  for (rho in rho_vec) {
+    
+    # fit multilevel model
+    res <- conduct_mlma(dat = dat, rho = rho)
+    
+    
+    # apply RVE methods
+      res <- robust(res, cluster = study_id_1, clubSandwich = TRUE)
+      
+    
+    #create output
+    m <- bind_rows(m,
+                   tibble(   # pref = unique(dat$pref),
+                             rho_val = rho,
+                             estimate = res$beta[1],
+                             se = res$se,
+                             zval = res$zval,
+                             pval = res$pval,
+                             ci.lb = res$ci.lb,
+                             ci.ub = res$ci.ub,
+                             QE = res$QE,
+                             QEp = res$QEp,
+                             tau2 = res$tau2,
+                             I2 = res$I2,
+                             H2 = res$H2))
+    
+    
+  }
+  
+  
+  
+  return(m)
+  
+}
+
+```
+
+
+## CMA function
+```{r}
+#' `conduct_cma()` computes a pooled effect size using the information from "effect_sizes.csv" by 
+#' fitting a multilevel meta-analytic model repetitively by adding the effect size(s) of a study based 
+#' on the publication year. 
+#' @param dat A data frame containing effect sizes (i.e., "effect_sizes.csv")
+#' @param rho value of the correlation of the sampling errors within clusters
+#' @param rve logical value to apply or not robust variance estimation
+#' @returns a data frame with summary information of the pooled estimates
+#' @examples
+
+# 
+# library(tidyverse) # for data wrangling
+# library(metafor) # compute effect sizes
+# 
+
+conduct_cma <- function(dat, rho, rve) {
+  
+  # get the mlma function
+  source("code/functions/conduct_mlma.R")
+  
+  # object to store output
+  m <- NULL
+  
+  
+  #order labels by year
+  year_order <- dat %>% 
+    distinct(study_id, year) %>% 
+    arrange(year) %>% 
+    mutate(study_id_1 = 1:n())
+  
+  dat <- dat %>% 
+    select(-c(study_id_1, year)) %>% 
+    left_join(year_order, by = "study_id") %>% 
+    ungroup()
+  
+  
+  nth_study <- 1
+  
+  for (i in 1:max(dat$study_id_1)) {
+    
+    # select subset of effect sizes
+    sdat <- dat %>% filter(study_id_1 %in% c(1:i))
+    
+    # study being added
+    added_study <- if_else(i == 1, unique(sdat$study_id[sdat$study_id_1 == i]), 
+                           paste0("+ ",unique(sdat$study_id[sdat$study_id_1 == i])))
+    
+    
+    # if first study, no need multilevel model: simply aggregate effect sizes
+    #  and fit EE model to easily extract values of interest
+    if (i == 1) {
+      
+      # transform data into an escalc object
+      sdat <- escalc(yi = cor_yi, vi = cor_vi, data = sdat)
+      
+      # aggregate ES
+      agg <- aggregate(sdat,
+                       cluster=study_id_1,
+                       rho=rho)
+      
+      res <- rma(yi = yi,
+                 vi = vi,
+                 data = agg, 
+                 method="EE", 
+                 slab= study_id)
+      
+    }
+    
+    
+    # subsequent studies 
+    if (i != 1) {
+      
+      # fit multilevel model
+      res <- conduct_mlma(dat = sdat, rho = rho)
+      
+      # robust variance estimation
+      if (isTRUE(rve)) {
+        res <- robust(res, cluster = study_id_1, clubSandwich = TRUE)
+      }
+      
+    }
+
+    
+    
+    #create output
+    m <- bind_rows(m,
+                   tibble(#preference = unique(dat$pref),
+                          slab = added_study,
+                          k_added = nrow(dat[dat$study_id_1 == i,]), # number of ESs added
+                          nth_study = nth_study, # how many of studies added so far
+                          # fail_safe_n = fail_safe_n$fsnum, 
+                          rve = rve,
+                          estimate = res$beta[1],
+                          se = res$se,
+                          zval = res$zval,
+                          pval = res$pval,
+                          ci.lb = res$ci.lb,
+                          ci.ub = res$ci.ub,
+                          sigma_2_1 = ifelse(i != 1, res$sigma2[1], 0),
+                          sigma_2_2 = ifelse(i != 1, res$sigma2[2], 0)))
+    
+    
+    nth_study <- nth_study + 1
+    
+  } # study_id for loop
+  
+  return(m)
+}
+
+```
+
+
+## To leave out a study
+```{r}
+
+
+#' `conduct_leave1out()` computes a pooled effect size by fitting a multilevel meta-analytic model repetitively by 
+#' removing one study.
+#' @param dat A data frame containing effect sizes (i.e., "effect_sizes.csv")
+#' @param rho value of the correlation of the sampling errors within clusters
+#' @param rve logical value to apply or not robust variance estimation
+#' @returns a data frame with summary information of the pooled estimates
+#' @examples
+
+
+
+# library(tidyverse) # for data wrangling
+# library(metafor) # compute effect sizes
+# 
+
+conduct_leave1out <- function(dat, rho, rve) {
+  
+  # get the mlma function
+  source("code/functions/conduct_mlma.R")
+  
+  # object to store output
+  m <- NULL
+  
+  for (i in 0:max(dat$study_id_1)) {
+    
+    # omit one study
+    sdat <- dat %>% filter(study_id_1 != i)
+    
+    # study being omitted
+    omit_study <- paste0("-",unique(dat$study_id[dat$study_id_1 == i]))
+    year_of_publication  <- unique(dat$year[dat$study_id_1 == i])
+    
+    
+    if (i == 0) {
+      omit_study <- "Overall"
+      year_of_publication <- NULL
+    }
+
+    
+    # fit multilevel model
+    res <- conduct_mlma(dat = sdat, rho = rho)
+    
+    # robust variance estimation
+    if (isTRUE(rve)) {
+      res <- robust(res, cluster = study_id_1, clubSandwich = TRUE)
+    }
+    
+    
+    
+    #create output
+    m <- bind_rows(m,
+                   tibble(   #preference = unique(dat$pref),
+                             slab = omit_study,
+                             year_of_publication = year_of_publication,
+                             estimate = res$beta[1],
+                             se = res$se,
+                             zval = res$tval,
+                             df = res$ddf,
+                             pval = res$pval,
+                             ci.lb = res$ci.lb,
+                             ci.ub = res$ci.ub,
+                             Q = res$QE,
+                             Qp = res$QEp))
+    
+    
+  } # study_id for loop
+  
+  
+  return(m)
+}
+
+```
+
+
+### Multilevel meta-analysis
+```{r}
+
+#We use the effect sizes to fit a three-level meta-analysis model with random 
+#effects at the study and estimate level in which we account for the dependence 
+#of effect sizes by letting the sampling errors within studies to be correlated 
+#with a correlation coefficient of 'rho'. We also apply robust variance 
+#estimation (RVE) with small-sample adjustment.
+
+rho = .5
+
+  # read effect size datasets
+  dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
+  
+  # fitting multilevel model
+  mlma <- conduct_mlma(dat = dat, rho = rho)
+  mlma <- robust(mlma, cluster = study_id_1, clubSandwich = TRUE)
+  
+  # save output
+  write_rds(mlma, "mlma_%s.rds")
+
+  
+```
+
+
+#### Equivalence testing
+```{r}
+
+#To assess whether the effect sizes we obtained are practically or theoretically 
+#of *relevance* (i.e., does the overall effect size fall within the boundaries 
+#of a smallest effect size of interest or not?) we conducted equivalence tests. 
+#We determined the smallest effect size of interest to be |.1|
+
+ m <- read_rds("mlma_%s.rds")
+  
+  rob_se <- m$se
+  es <- m$b[1]
+  
+  t <- TOSTmeta(ES = es,
+                se = rob_se,
+                low_eqbound_d=-0.1,
+                high_eqbound_d=0.1,
+                alpha=0.05)
+  
+  # save output
+  write_rds(t, "equivalence_test_%s.rds")
+
+```
+
+
+### Moderator testing
+```{r}
+
+
+
+# Culture - Pre-registered
+
+
+# Gender - Pre-registered
+
+
+# Decision topic - Pre-registered
+
+
+# MDMQ or GDMS - Pre-registered
+
+
+# Year of publication - Pre-registered
+
+
+# Avoidance or dependence from GDMS
+
+```
 
 
