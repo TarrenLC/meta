@@ -168,7 +168,7 @@ compute_es <- function(data) {
     mutate(author_extract = "Leon",
       es_id = 1:n(),  
            # number of participants included in the ES calculation
-          n_incl_es = case_when(analysis %in% "Correlation" ~ total_number_of_participants_study_1,
+          n_incl_es = case_when(analysis %in% c("Both", "Correlation") ~ total_number_of_participants_study_1,
                                  # extreme group comparison included old vs. young differences
                                  analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
    
@@ -202,7 +202,7 @@ compute_es <- function(data) {
         mutate(study_es_id = 1:n()) %>% # create id for effect sizes within each study
         ungroup() %>% 
       # assign a number to each study label
-      select(study_id, study_id_1, title, year_of_publication, country, measure, 
+      select(study_id, study_es_id, study_id_1, title, year_of_publication, country, measure, 
              dv, analysis,
              culture_powerdistance, culture_individualism, culture_mtas,
              culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
@@ -268,7 +268,6 @@ table_es_overview <- function(dat) {
     n_studies = length(unique(dat$pub_study)),
     n_es = nrow(dat),
     n_participants = sum(dat_n$n_incl_es),
-    n_participants = sum(dat_n$n_incl_es),
     pub_range = paste0(as.character(min(dat$year))," - ", as.character(max(dat$year))))
 
   
@@ -286,25 +285,25 @@ table_es_overview <- function(dat) {
 
 dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
 
-dat_av1 <- dat %>% 
+dat %>% 
   ggplot(aes(x= cor_yi)) + 
   geom_density() +
   theme_bw() +
   ggtitle("Estimate")
 
-dat_av2 <- dat %>% 
+dat %>% 
   ggplot(aes(x= cor_vi)) + 
   geom_density() +
   theme_bw() +
   ggtitle("Estimate")
 
-dat_av3 <- dat %>% 
+dat %>% 
   ggplot(aes(x= log10(n_incl_es))) + 
   geom_density() +
   theme_bw() +
   ggtitle("Sample")
 
-dat_av4 <- dat %>% 
+dat %>% 
   ggplot(aes(x= dec_diff)) + 
   geom_density() +
   theme_bw() +
@@ -313,6 +312,8 @@ dat_av4 <- dat %>%
 
 
 table1 <- table_es_overview(dat)
+
+table1
 
 ```
 
