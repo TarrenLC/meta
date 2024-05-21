@@ -21,7 +21,7 @@ library(effectsize)# compute effect sizes
 # Clean up data
 ```{r}
 
-data <- read.csv(file = "2024-0513_review_Formatted.csv", header = TRUE)
+data <- read.csv(file = "2024-0520_review_Formatted.csv", header = TRUE)
 
 data <- clean_names(data)
 
@@ -85,23 +85,22 @@ write.csv(df1, file = "prepped_meta_data.csv")
 compute_es <- function(data) {
   
 # EFFECT SIZES ----------------------------------------------------------
-  ###avoidance
-  
+
  # if (preference == "avoidance") {
    # means and SDS (young vs. old)
-  smd_dat_av <- df1 %>% 
+  smd_dat <- df1 %>% 
     filter(analysis == "Ms and SDs")
   
     # add point-biserial correlation and its variance (Soper's 'exact' equation) 
     # to dataset for avoidance
-    smd_dat_av <- escalc(measure = "RPB",
-                    m1i = young_adults_avoidance_mean, 
-                    m2i = young_adults_avoidance_sd,
-                    sd1i = older_adults_avoidance_mean,,
-                    sd2i = older_adults_avoidance_sd,,
+    smd_dat <- escalc(measure = "RPB",
+                    m1i = young_adults_dv_mean, 
+                    m2i = young_adults_dv_sd,
+                    sd1i = older_adults_dv_mean,
+                    sd2i = older_adults_dv_sd,
                     n1i = number_of_older_adults_categorical_var_study_1,
                     n2i = number_of_young_adults_categorical_var_study_1,
-                    dat = smd_dat_av,
+                    dat = smd_dat,
                     vtype = "LS",
                     replace=FALSE)
     
@@ -119,9 +118,9 @@ compute_es <- function(data) {
      #             vtype = "LS",
      #             replace=FALSE)
     
-    smd_dat_av <- smd_dat_av %>% 
+    smd_dat <- smd_dat %>% 
     # calculate age difference in decades (mean or midpoint in age range)
-    mutate(dec_diff_av = case_when(!is.na(age_m_young_adults) &!is.na(age_m_older_adults) ~ .1*(age_m_older_adults-age_m_young_adults),
+    mutate(dec_diff = case_when(!is.na(age_m_young_adults) &!is.na(age_m_older_adults) ~ .1*(age_m_older_adults-age_m_young_adults),
                                 TRUE ~ .1*(((min_age_older+max_age_older)/2) - ((min_age_young+max_age_young)/2))),
            cor_type = "RPB")
     
@@ -133,137 +132,54 @@ compute_es <- function(data) {
       #####################################################_
   
   # avoidance correlations 
-     cor_dat_av <- df1 %>% 
+     cor_dat <- df1 %>% 
     filter(analysis == "Correlation") # use correlations from extreme group designs if available
   
   # add yi=ri and vi (sampling variances) to dataset for avoidance
-  cor_dat_av <- escalc(measure = 'COR',
-                    ri = avoidance_age_result,
+  cor_dat <- escalc(measure = 'COR',
+                    ri = dv_age_result,
                     ni = total_number_of_participants_study_1,
                     vtype = "LS",
-                    data = cor_dat_av)
+                    data = cor_dat)
   
 
   
 
-  cor_dat_av <-  cor_dat_av %>% 
+  cor_dat <-  cor_dat %>% 
     # calculate age difference in decades
     mutate(cor_type = "COR") %>% 
     mutate(dec_diff_av =  .1*(max_age - min_age))
   
   
   
-   # bind avoidance data frames
-   es_av <- bind_rows(smd_dat_av, cor_dat_av) %>% 
-   select(study_id, yi, vi, cor_type, age_variable_study_1, dec_diff_av) %>% 
-    rename(cor_yi_av = yi,
-           cor_vi_av = vi) %>% 
+   # bind data frames
+   es <- bind_rows(smd_dat, cor_dat) %>% 
+   select(study_id, yi, vi, cor_type, age_variable_study_1, dec_diff) %>% 
+    rename(cor_yi = yi,
+           cor_vi = vi) %>% 
     full_join(df1, by = c("study_id", "age_variable_study_1"))  %>% 
     mutate(author_extract = "Leon",
-      es_id_av = 1:n(),  
+      es_id = 1:n(),  
            # number of participants included in the ES calculation
-          n_incl_es_av = case_when(analysis == "Correlation" ~ total_number_of_participants_study_1,
+          n_incl_es = case_when(analysis == "Correlation" ~ total_number_of_participants_study_1,
                                  # extreme group comparison included old vs. young differences
                                  analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
    
    # Reverse effect sizes
-      es_av <- es_av %>% 
+      es <- es %>% 
         rowwise() %>% 
-        mutate(reversed_es_av = case_when(!is.na(young_adults_avoidance_mean) 
-                                          & !is.na(older_adults_avoidance_mean) &
-                                            young_adults_avoidance_mean > older_adults_avoidance_mean ~ 1,
-                                          !is.na(avoidance_age_result) & avoidance_age_result < 0 ~ 1,
+        mutate(reversed_es = case_when(!is.na(young_adults_dv_mean) 
+                                          & !is.na(older_adults_dv_mean) &
+                                            young_adults_dv_mean > older_adults_dv_mean ~ 1,
+                                          !is.na(dv_age_result) & dv_age_result < 0 ~ 1,
                                           TRUE ~ 0))
       
-      es_av <- es_av %>%
-        mutate(cor_yi_av = ifelse(reversed_es_av == 1, cor_yi_av * -1, cor_yi_av))
+      es <- es %>%
+        mutate(cor_yi = ifelse(reversed_es == 1, cor_yi * -1, cor_yi))
    
 #  }
   
-  # EFFECT SIZES ----------------------------------------------------------
-  ###dependence
-  
-#  if (preference == "dependence") {
 
-  
-    # means and SDS (young vs. old)
-  smd_dat_dp <- df1 %>% 
-    filter(analysis == "Ms and SDs")
-  
-  
-  # add point-biserial correlation and its variance (Soper's 'exact' equation) 
-    # to dataset for dependence
-    smd_dat_dp <- escalc(measure = "RPB",
-                    m1i = young_adults_dependence_mean, 
-                    m2i = young_adults_dependence_sd,
-                    sd1i = older_adults_dependence_mean, 
-                    sd2i = older_adults_dependence_sd,
-                    n1i = number_of_older_adults_categorical_var_study_1,
-                    n2i = number_of_young_adults_categorical_var_study_1,
-                    dat = smd_dat_dp,
-                    vtype = "LS",
-                    replace=FALSE)
-    
-
-  
-    smd_dat_dp <- smd_dat_dp %>% 
-    # calculate age difference in decades (mean or midpoint in age range)
-    mutate(dec_diff_dp = case_when(!is.na(age_m_young_adults) &!is.na(age_m_older_adults) ~ .1*(age_m_older_adults-age_m_young_adults),
-                                TRUE ~ .1*(((min_age_older+max_age_older)/2) - ((min_age_young+max_age_young)/2))),
-           cor_type = "RPB")
-    
- 
-   #####################################################_
-  
-  # correlations
- 
-  
-   cor_dat_dp <- df1 %>% 
-    filter(analysis == "Correlation") # use correlations from extreme group designs if available
-  
-    # add yi=ri and vi (sampling variances) to dataset for dependence
-  cor_dat_dp <- escalc(measure = 'COR',
-                    ri = dependent_age_result, 
-                    ni = total_number_of_participants_study_1,
-                    vtype = "LS",
-                    data = cor_dat_dp)
-  
-  
-    cor_dat_dp <-  cor_dat_dp %>% 
-    # calculate age difference in decades
-    mutate(cor_type = "COR") %>% 
-    mutate(dec_diff_dp =  .1*(max_age - min_age))
-  
-  
-  
-
-  # bind dependence data frames
-  es_dp <- bind_rows(smd_dat_dp, cor_dat_dp) %>% 
-    select(study_id, yi, vi, cor_type, age_variable_study_1, dec_diff_dp) %>% 
-    rename(cor_yi_dp = yi,
-           cor_vi_dp = vi) %>% 
-    full_join(df1, by = c("study_id", "age_variable_study_1")) %>% 
-    mutate(author_extract = "Leon",
-           es_id_dp = 1:n(),
-  # number of participants included in the ES calculation
-           n_incl_es_dp = case_when(analysis == "Correlation" ~ total_number_of_participants_study_1,
-                                 # extreme group comparison included old vs. young differences
-                                 analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
-    
-  
-  
-     # Reverse effect sizes
-      es_dp <- es_dp %>% 
-        rowwise() %>% 
-        mutate(reversed_es_dp = case_when(!is.na(young_adults_dependence_mean) 
-                                          & !is.na(older_adults_dependence_mean) &
-                                            young_adults_dependence_mean > older_adults_dependence_mean ~ 1,
-                                          !is.na(dependent_age_result) & dependent_age_result < 0 ~ 1,
-                                          TRUE ~ 0))
-      
-      es_dp <- es_dp %>% 
-        mutate(cor_yi_dp = case_when(reversed_es_dp == 1  ~ cor_yi_dp*-1, 
-                                reversed_es_dp == 0 ~cor_yi_dp))
 
       
 #  }
@@ -274,10 +190,11 @@ compute_es <- function(data) {
     # SAVE OUTPUT ------------------------------------------------------------
   
   
-   es_dat_av <- es_av %>% 
+   es_dat <- es %>% 
       # assign a number to each study label
       mutate(study_id_1 = cur_group_id()) %>% 
-      select(study_id, study_id_1, title, year_of_publication, country, measure, analysis,
+      select(study_id, study_id_1, title, year_of_publication, country, measure, 
+             dv, analysis,
              culture_powerdistance, culture_individualism, culture_mtas,
              culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
              culture_indulgence, topic, sample_type, groups, analysis, total_number_of_participants_study_1,
@@ -286,36 +203,19 @@ compute_es <- function(data) {
              age_m_young_adults, age_m_older_adults, age_m_value, 
              min_age_young, min_age_older, min_age, 
              max_age_young, max_age_older, max_age, 
-             dec_diff_av, young_adults_avoidance_mean, young_adults_avoidance_sd,
-             older_adults_avoidance_mean, older_adults_avoidance_sd,
-             avoidance_age_result, cor_yi_av, cor_vi_av, cor_type,
-             es_id_av, n_incl_es_av, reversed_es_av, author_extract)
+             dec_diff, young_adults_dv_mean, young_adults_dv_sd,
+             older_adults_dv_mean, older_adults_dv_sd,
+             dv_age_result, cor_yi, cor_vi, cor_type,
+             es_id, n_incl_es, reversed_es, author_extract)
    
-     es_dat_dp <- es_dp %>% 
-      # assign a number to each study label
-      mutate(study_id_1 = cur_group_id()) %>% 
-      select(study_id, study_id_1, title, year_of_publication, country, measure, analysis,
-             culture_powerdistance, culture_individualism, culture_mtas,
-             culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
-             culture_indulgence, topic, sample_type, groups, analysis, total_number_of_participants_study_1,
-             number_of_older_adults_categorical_var_study_1, number_of_young_adults_categorical_var_study_1, gender_female_value,
-             age_m_young_adults, age_m_older_adults, age_m_value, 
-             min_age_young, min_age_older, min_age, 
-             max_age_young, max_age_older, max_age, 
-             dec_diff_dp, young_adults_dependence_mean,
-             young_adults_dependence_mean, young_adults_dependence_sd, 
-             older_adults_dependence_mean, older_adults_dependence_sd,
-             dependent_age_result, cor_yi_dp, cor_vi_dp, cor_type, 
-             es_id_dp, n_incl_es_dp, reversed_es_dp, author_extract)
-  
-     all_es_dat <- es_dat_av %>% left_join(es_dat_dp)
+   
      
-     all_es_dat$study_id_2 = all_es_dat$study_id
+     es_dat$study_id_2 = es_dat$study_id
      
-     all_es_dat <- all_es_dat %>% 
+     es_dat <- es_dat %>% 
        separate(study_id_2, c("first_author", "year", "section"), " ")
   
-   write_csv(all_es_dat, file = "effect_sizes.csv")
+   write_csv(es_dat, file = "effect_sizes.csv")
   
   print("effect_sizes_%s.csv created successfully! Saved in:   Home/PhD/Meta_analysis/Meta_Analyses") 
 }
@@ -345,11 +245,11 @@ table_es_overview <- function(dat) {
   
 
   dat_n <- dat %>% 
-    distinct(study_id, n_incl_es_av, n_incl_es_dp, pub_study) %>% 
+    distinct(study_id, n_incl_es, n_incl_es, pub_study) %>% 
     group_by(study_id) %>%  
     # within studies even if a sample completed the same task, some data points 
     # might go missing, so we select the highest number recorded within a same sample
-    filter(n_incl_es_av == max(n_incl_es_av)) %>% 
+    filter(n_incl_es == max(n_incl_es)) %>% 
     ungroup() 
   
   
@@ -358,8 +258,8 @@ table_es_overview <- function(dat) {
     n_publications =  length(unique(paste0(dat$title, dat$first_author))),
     n_studies = length(unique(dat$pub_study)),
     n_es = nrow(dat),
-    n_participants_avoidance = sum(dat_n$n_incl_es_av),
-    n_participants_dependence = sum(dat_n$n_incl_es_dp),
+    n_participants = sum(dat_n$n_incl_es),
+    n_participants = sum(dat_n$n_incl_es),
     pub_range = paste0(as.character(min(dat$year))," - ", as.character(max(dat$year))))
 
   
@@ -378,52 +278,30 @@ table_es_overview <- function(dat) {
 dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
 
 dat_av1 <- dat %>% 
-  ggplot(aes(x= cor_yi_av)) + 
+  ggplot(aes(x= cor_yi)) + 
   geom_density() +
   theme_bw() +
   ggtitle("Estimate")
 
 dat_av2 <- dat %>% 
-  ggplot(aes(x= cor_vi_av)) + 
+  ggplot(aes(x= cor_vi)) + 
   geom_density() +
   theme_bw() +
   ggtitle("Estimate")
 
 dat_av3 <- dat %>% 
-  ggplot(aes(x= log10(n_incl_es_av))) + 
+  ggplot(aes(x= log10(n_incl_es))) + 
   geom_density() +
   theme_bw() +
   ggtitle("Sample")
 
 dat_av4 <- dat %>% 
-  ggplot(aes(x= dec_diff_av)) + 
+  ggplot(aes(x= dec_diff)) + 
   geom_density() +
   theme_bw() +
   ggtitle("Sample age Differences (decades)")
 
-dat_dp1 <- dat %>% 
-  ggplot(aes(x= cor_yi_dp)) + 
-  geom_density() +
-  theme_bw() +
-  ggtitle("Estimate")
 
-dat_dp2 <- dat %>% 
-  ggplot(aes(x= cor_vi_dp)) + 
-  geom_density() +
-  theme_bw() +
-  ggtitle("Estimate")
-
-dat_dp3 <- dat %>% 
-  ggplot(aes(x= log10(n_incl_es_dp))) + 
-  geom_density() +
-  theme_bw() +
-  ggtitle("Sample")
-
-dat_dp4 <- dat %>% 
-  ggplot(aes(x= dec_diff_dp)) + 
-  geom_density() +
-  theme_bw() +
-  ggtitle("Sample age Differences (decades)")
 
 table1 <- table_es_overview(dat)
 
