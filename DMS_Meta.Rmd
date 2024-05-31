@@ -656,6 +656,7 @@ rho = .5
   # save output
   write_rds(mlma, "mlma_%s.rds")
 
+  mlma
   
 ```
 
