@@ -92,7 +92,7 @@ compute_es <- function(data) {
  # if (preference == "avoidance") {
    # means and SDS (young vs. old)
   smd_dat <- df1 %>% 
-    filter(analysis == "Ms and SDs")
+    subset(analysis == "Ms and SDs")
   
     # add point-biserial correlation and its variance (Soper's 'exact' equation) 
     # to dataset for avoidance
@@ -135,9 +135,10 @@ compute_es <- function(data) {
     
       #####################################################_
   
-  # avoidance correlations 
-     cor_dat <- df1 %>% 
-    filter(analysis %in% c("Correlation", "Both")) # use correlations from extreme group designs if available
+  # correlations 
+     cor_dat <-  df1 %>% 
+       subset(df1$analysis %in% c("Correlation", "Both"))
+# use correlations from extreme group designs if available
   
   # add yi=ri and vi (sampling variances) to dataset for avoidance
   cor_dat <- escalc(measure = 'COR',
@@ -163,17 +164,18 @@ compute_es <- function(data) {
   
   
    # bind data frames
-   es <- bind_rows(smd_dat, cor_dat) %>% 
-   select(study_id, yi, vi, cor_type, age_variable_study_1, dec_diff) %>% 
-    rename(cor_yi = yi,
+   es <- bind_rows(smd_dat, cor_dat) %>%
+     select(study_id, outcome_num, yi, vi, cor_type, age_variable_study_1, dec_diff) %>%
+     rename(cor_yi = yi,
            cor_vi = vi) %>% 
-    full_join(df1, by = c("study_id", "age_variable_study_1"))  %>% 
-    mutate(author_extract = "Leon",
+     full_join(df1, by = c("study_id", "outcome_num")) %>% 
+     mutate(author_extract = "Leon",
       es_id = 1:n(),  
            # number of participants included in the ES calculation
           n_incl_es = case_when(analysis %in% c("Both", "Correlation") ~ total_number_of_participants_study_1,
                                  # extreme group comparison included old vs. young differences
-                                 analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 + number_of_young_adults_categorical_var_study_1))
+                                 analysis!= "Correlation" ~ number_of_older_adults_categorical_var_study_1 +
+                                  number_of_young_adults_categorical_var_study_1))
    
    # Reverse effect sizes
       es <- es %>%  
@@ -292,6 +294,10 @@ table_es_overview <- function(dat) {
 ```{r}
 
 dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
+
+## There are duplicate rows - Unsure why. ## FIXED IT!!
+
+
 
 dat %>% 
   ggplot(aes(x= cor_yi)) + 
