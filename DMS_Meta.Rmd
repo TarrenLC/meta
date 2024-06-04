@@ -78,14 +78,16 @@ write.csv(df1, file = "prepped_meta_data.csv")
 ## Function
 ```{r}
 
+
+
+compute_es <- function(data) {
+  
 #' `compute_es()` creates "effect_sizes_pref.csv", by computing standardized effect sizes using the outcomes 
 #' information (e.g., means, SDs, correlations) in 'clean_study_data_*.csv'.
 #' @param data Data file for processing
 #' @returns A data frame with details of all the studies of the specified econ. preference (e.g., first author, 
 #' year of publication, sample size) along with the standardized effect size and their respective sampling variance
 #' that is saved as a csv file in a designated folder. 
-
-compute_es <- function(data) {
   
 # EFFECT SIZES ----------------------------------------------------------
 
@@ -336,13 +338,6 @@ table1
 ## MLMA function
 ```{r}
 
-#' `conduct_mlma()` computes a pooled effect size using the information from "effect_sizes.csv" by 
-#' fitting a three-level meta-analytic model. 
-#' Follows recommendations from: https://wviechtb.github.io/metafor/reference/misc-recs.html?q=sandw#details
-#' @param dat A data frame containing effect sizes (i.e., "effect_sizes_pref.csv")
-#' @param rho value of the correlation of the sampling errors within clusters
-#' @returns a metafor rma.mv object.
-#' @examples
 
 
 
@@ -352,6 +347,15 @@ table1
 
 
 conduct_mlma <- function(dat, rho) {
+  
+  
+#' `conduct_mlma()` computes a pooled effect size using the information from "effect_sizes.csv" by 
+#' fitting a three-level meta-analytic model. 
+#' Follows recommendations from: https://wviechtb.github.io/metafor/reference/misc-recs.html?q=sandw#details
+#' @param dat A data frame containing effect sizes (i.e., "effect_sizes_pref.csv")
+#' @param rho value of the correlation of the sampling errors within clusters
+#' @returns a metafor rma.mv object.
+#' @examples
   
   # transform data into an escalc object
   dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat )
@@ -401,7 +405,7 @@ conduct_mlma <- function(dat, rho) {
 conduct_sensitivity_rho <- function(dat, rho_vec) {
   
   # get the mlma function
-  source("code/functions/conduct_mlma.R")
+  source("conduct_mlma.R")
   
   # object to store output
   m <- NULL
@@ -464,7 +468,7 @@ conduct_sensitivity_rho <- function(dat, rho_vec) {
 conduct_cma <- function(dat, rho, rve) {
   
   # get the mlma function
-  source("code/functions/conduct_mlma.R")
+  source("conduct_mlma.R")
   
   # object to store output
   m <- NULL
@@ -579,7 +583,7 @@ conduct_cma <- function(dat, rho, rve) {
 conduct_leave1out <- function(dat, rho, rve) {
   
   # get the mlma function
-  source("code/functions/conduct_mlma.R")
+  source("conduct_mlma.R")
   
   # object to store output
   m <- NULL
@@ -659,6 +663,32 @@ rho = .5
   mlma
   
 ```
+
+
+#### Outliers on overall avoidant DMS
+```{r}
+
+boxplot(mlma$yi, plot=TRUE)$out 
+
+# identify outliers; 2 in this 
+
+caseoutliers <- boxplot(mlma$yi, plot=FALSE)$out  
+
+#save outliers in 
+
+vectoradvice_out<- mlmdat[-which(mlmdat$yi %in% outliers),]
+
+#re-run model with 2 outliers removed
+
+leave1out <- conduct_leave1out(dat = dat, rho = rho, rve = TRUE)
+  
+  write_rds(leave1out, sprintf("output/%s/leave1out_study_%s.rds", pref, pref))
+
+
+summary(overall, digits=3)
+
+```
+
 
 
 #### Equivalence testing
