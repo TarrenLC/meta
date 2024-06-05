@@ -299,26 +299,82 @@ amountvariancelevel3
 ```
 
 ## Moderator testing
+```{r}
+
+# transform data into an escalc object
+dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat )
+df <- NULL
+rho_vec <- seq(from = .1, to = .9, by = .1)
+
+
+for (rho in rho_vec) {
+  
+  # create approx. V matrix assuming that the effect sizes within studies are correlated with a correlation coefficient of value 'rho'
+  V_mat <- vcalc(vi = vi,
+                 cluster = study_id_1,
+                 obs = es_id,
+                 data = dat,
+                 rho = rho)
+  
+  m <- list()
+  
+  
+  # fit multilevel models using approximate V matrix
+  ## age range in decades as moderator
+  ### some studies are removed due to missing age information
+  m[[1]] <- rma.mv(yi ~ 1 + dec_diff,
+                   V = V_mat,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+  m[[1]] <- robust(m[[1]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ### for extreme group design studies we calculate average prop. of females in the sample (weighted average).
+  ###  some studies are removed due to missing gender information
+  dat <- dat %>% 
+    rowwise() %>% 
+    mutate(prop_female_gen = 
+             case_when(is.na(gender_female_value) & !is.na(young_prop_female) & !is.na(old_prop_female) ~ ((young_total_n/n_incl_es)*young_prop_female)+((old_total_n/n_incl_es)*old_prop_female),
+                       !is.na(prop_female) ~ prop_female)) %>% 
+    ungroup()
+  
+  m[[2]] <- rma.mv(yi ~ 1 + prop_female_gen,
+                   V = V_mat,
+                   random = ~ 1 | study_id/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+  m[[2]] <- robust(m[[2]], cluster = study_id, clubSandwich = TRUE)
+  
+  
+  
+
+```
+
+
 ### Culture
 ```{r}
 
 # Power distance
 
-# filter effect size datasets
+## filter effect size datasets
 sdat <- dat[!(is.na(dat$culture_powerdistance)),]
   
   
-# fitting multilevel model
+## fitting multilevel model
 culpd <- conduct_mlma(dat = sdat, rho = rho)
 culpd <- robust(culpd, cluster = study_id_1, clubSandwich = TRUE)
   
   
-# save output
+## save output
 write_rds(culpd, "mlma_culture_pd.rds")
 
 culpd
 
-# Culture - Pre-registered
+# Individualism
+
+
 
 
 # Gender - Pre-registered
