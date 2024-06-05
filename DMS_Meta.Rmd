@@ -166,34 +166,32 @@ rho = .5
 
 boxplot(mlma$yi, plot=TRUE)$out 
 
-# identify outliers; 2 in this 
+# Extract the yi values into a data frame
+data_mlma <- as.data.frame(mlma$yi)  
+names(data_mlma) <- "yi"  
 
-caseoutliers <- boxplot(mlma$yi, plot=FALSE)$out
+# Identify outliers
+caseoutliers <- boxplot(data_mlma$yi, plot=FALSE)$out
 caseoutliers <- round(caseoutliers, digits = 3)
 
-# Debugging prints
-rounded_yi <- round(mlma$yi, digits = 3)
-print(rounded_yi)
-print(caseoutliers)
+# Round the yi values
+data_mlma$rounded_yi <- round(data_mlma$yi, digits = 3)
 
-# Create logical vector for non-outliers
-logical_vector <- !(rounded_yi %in% caseoutliers)
-print(logical_vector)
+# Logical vector for non-outliers
+logical_vector <- !(data_mlma$rounded_yi %in% caseoutliers)
 
-# Save non-outliers in a new dataframe
-vectoradvice_out <- mlma[logical_vector, ]
+# Subset the data to exclude outliers
+filtered_data_mlma <- data_mlma[logical_vector, , drop = FALSE]
 
-# Verify the result
-print(vectoradvice_out)
+# Print the filtered data
+print(filtered_data_mlma)
 
 #re-run model with 2 outliers removed
 
-overall <- rma.mv(conduct_mlma(dat = dat, rho = rho)
-                  
-  mlma <- robust(mlma, cluster = study_id_1, clubSandwich = TRUE)
+new_mlma <- rma(yi = filtered_data_mlma$yi, vi = mlma$vi[logical_vector], data = mlma$data[logical_vector, ])
 
 
-summary(overall, digits=3)
+summary(new_mlma)
 
 ```
 
