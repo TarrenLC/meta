@@ -329,6 +329,8 @@ for (rho in rho_vec) {
                    digits=4)
   
   m[[1]] <- robust(m[[1]], cluster = study_id_1, clubSandwich = TRUE)
+}
+m
   
   ### for extreme group design studies we calculate average prop. of females in the sample (weighted average).
   ###  some studies are removed due to missing gender information
