@@ -158,6 +158,8 @@ rho = .5
 
   mlma
   
+
+  
 ```
 
 
@@ -219,13 +221,102 @@ summary(new_mlma)
   # save output
   write_rds(t, "equivalence_test_%s.rds")
 
+  
 ```
 
 
-### Moderator testing
 ```{r}
 
+t
 
+
+```
+
+
+## Test the fit of the three-level model against the 2 two-level models
+```{r}
+
+overall <- conduct_mlma(dat = dat, rho = rho)
+
+# Build a two-level model without within-study variance.
+# Perform a likelihood-ratio-test to determine the significance of the within-study variance.
+  dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat )
+  dat$study_id_1 <- as.character(dat$study_id_1)
+  dat$es_id <- as.character(dat$es_id)
+
+V_mat <- vcalc(vi = vi,
+                cluster = study_id_1,
+                obs = es_id,
+                data = dat,
+                rho = rho)
+
+modelnovar2 <- rma.mv(yi = yi, V = V_mat, random = list(~ 1 | study_id_1, ~ 1 | study_es_id),sigma2=c(0,NA), 
+                      tdist=TRUE, data=dat)
+
+
+
+anova(overall,modelnovar2)
+
+# Build a two-level model without between-study variance;
+# Perform a likelihood-ratio-test to determine the significance of the between-study variance.
+
+modelnovar3 <- rma.mv(yi = yi, V = V_mat, random = list(~ 1 | study_id_1, ~ 1 | study_es_id),sigma2=c(0,NA), 
+                      tdist=TRUE, data=dat)
+
+anova(overall,modelnovar3)
+
+
+```
+
+
+### Variances
+```{r}
+# Determining how the total variance is distributed over the three levels of the meta-analytic model;
+# Print the results in percentages on screen.
+
+n <- length(dat$cor_vi)
+
+list.inverse.variances <- 1 / (dat$cor_vi)
+
+sum.inverse.variances <- sum(list.inverse.variances)
+
+squared.sum.inverse.variances <- (sum.inverse.variances) ^ 2
+list.inverse.variances.square <- 1 / (dat$cor_vi^2)
+sum.inverse.variances.square <-sum(list.inverse.variances.square)
+numerator <- (n - 1) * sum.inverse.variances
+denominator <- squared.sum.inverse.variances -sum.inverse.variances.square
+estimated.sampling.variance <- numerator / denominator
+I2_1 <- (estimated.sampling.variance) / (overall$sigma2[1]+ overall$sigma2[2] + estimated.sampling.variance)
+I2_2 <- (overall$sigma2[1]) / (overall$sigma2[1]+ overall$sigma2[2] + estimated.sampling.variance)
+I2_3 <- (overall$sigma2[2]) / (overall$sigma2[1]+ overall$sigma2[2] + estimated.sampling.variance)
+amountvariancelevel1 <- I2_1 * 100
+amountvariancelevel2 <- I2_2 * 100
+amountvariancelevel3 <- I2_3 * 100
+
+amountvariancelevel1
+amountvariancelevel2
+amountvariancelevel3
+```
+
+## Moderator testing
+### Culture
+```{r}
+
+# Power distance
+
+# filter effect size datasets
+sdat <- dat[!(is.na(dat$culture_powerdistance)),]
+  
+  
+# fitting multilevel model
+culpd <- conduct_mlma(dat = sdat, rho = rho)
+culpd <- robust(culpd, cluster = study_id_1, clubSandwich = TRUE)
+  
+  
+# save output
+write_rds(culpd, "mlma_culture_pd.rds")
+
+culpd
 
 # Culture - Pre-registered
 
