@@ -233,7 +233,7 @@ t
 ```
 
 
-## Test the fit of the three-level model against the 2 two-level models
+### Test the fit of the three-level model against the 2 two-level models
 ```{r}
 
 overall <- conduct_mlma(dat = dat, rho = rho)
@@ -298,7 +298,27 @@ amountvariancelevel2
 amountvariancelevel3
 ```
 
-## Moderator testing
+### Sensitivity analysis
+```{r}
+
+overall_sensitivity <- conduct_sensitivity_rho(dat = dat, rho_vec = c(.1,.2,.3,.4,.5,.6,.7,.8,.9))
+
+write_rds(overall_sensitivity, file = "overall_sensitivity_rho.rds")
+
+plot_sensitivity_rho(dat = read_rds("overall_sensitivity_rho.rds"))
+
+```
+
+## Forest plot
+```{r}
+
+plot_forestplot_ma(m = read_rds("mlma_%s.rds"))
+
+
+```
+
+
+# Moderator testing
 ```{r}
 
 # transform data into an escalc object
@@ -320,7 +340,7 @@ for (rho in rho_vec) {
   
   
   # fit multilevel models using approximate V matrix
-  ## age range in decades as moderator
+  ## age range in decades as moderator------------------------------------------
   ### some studies are removed due to missing age information
   m[[1]] <- rma.mv(yi ~ 1 + dec_diff,
                    V = V_mat,
@@ -329,9 +349,181 @@ for (rho in rho_vec) {
                    digits=4)
   
   m[[1]] <- robust(m[[1]], cluster = study_id_1, clubSandwich = TRUE)
-}
-m
+
   
+   ## ES metric as moderator----------------------------------------------------
+  m[[2]] <- rma.mv(yi ~ 0 + cor_type,
+                   V = V_mat,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+  m[[2]] <- robust(m[[2]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  
+  ### for extreme group design studies we calculate average prop. of females in the sample (weighted average).
+  ###  some studies are removed due to missing gender information
+  dat <- dat %>% 
+    rowwise() %>% 
+    mutate(prop_female_gen = 
+             case_when(is.na(gender_female_value) & !is.na(young_prop_female) & !is.na(old_prop_female) ~
+                         ((young_total_n/n_incl_es)*young_prop_female)+((old_total_n/n_incl_es)*old_prop_female),
+                       !is.na(prop_female) ~ prop_female)) %>% 
+    ungroup()
+  
+  m[[3]] <- rma.mv(yi ~ 1 + prop_female_gen,
+                   V = V_mat,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+  m[[3]] <- robust(m[[3]], cluster = study_id, clubSandwich = TRUE)
+  
+  ### Culture - Power distance as moderator-------------------------------------
+  
+  # Exclude NA
+  datb <- dat[!(is.na(dat$culture_powerdistance)),] # exclude NA
+  datb$study_id_1 <- as.factor(datb$study_id_1)
+  datb$es_id <- as.factor(datb$es_id)
+  
+  V_matb <- vcalc(vi = vi,
+                  cluster = study_id_1,
+                  obs = es_id,
+                  data = datb, 
+                  rho = rho)
+  
+   m[[4]] <- rma.mv(yi ~ 0 + culture_powerdistance,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=datb,
+                   digits=4)
+  
+  m[[4]] <- robust(m[[4]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  
+  ### Culture - Individualism as moderator--------------------------------------
+  m[[5]] <- rma.mv(yi ~ 0 + culture_individualism,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=datb,
+                   digits=4)
+  
+  m[[5]] <- robust(m[[5]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ### Culture - MTAS as moderator--------------------------------------
+  m[[6]] <- rma.mv(yi ~ 0 + culture_mtas,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=datb,
+                   digits=4)
+  
+  m[[6]] <- robust(m[[6]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ### Culture - Uncertainty avoidance as moderator--------------------------------------
+  m[[7]] <- rma.mv(yi ~ 0 + culture_uncertaintyavoidance,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=datb,
+                   digits=4)
+  
+  m[[7]] <- robust(m[[7]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ### Culture - Long-term orientation as moderator--------------------------------------
+  m[[8]] <- rma.mv(yi ~ 0 + culture_longtermorientation,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=datb,
+                   digits=4)
+  
+  m[[8]] <- robust(m[[8]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ### Culture - Indulgence as moderator--------------------------------------
+  m[[9]] <- rma.mv(yi ~ 0 + culture_indulgence,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=datb,
+                   digits=4)
+  
+  m[[9]] <- robust(m[[9]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  
+  ## Decision-style outcome as moderator-----------------------------------------
+  m[[10]] <- rma.mv(yi ~ 0 + dv,
+                   V = V_mat,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+  m[[10]] <- robust(m[[10]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ## Participant sample as moderator-----------------------------------------------------
+  m[[11]] <- rma.mv(yi ~ 0 + sample_type,
+                   V = V_mat,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+  m[[11]] <- robust(m[[11]], cluster = study_id_1, clubSandwich = TRUE)
+  
+   # expand the list of models in a tidy format
+  meta_reg_df <- NULL
+  for (i in 1:length(m)) {
+    
+    res <- m[[i]]
+    # could also use broom::tidy()
+    res_df <- tibble(reg_num = i,
+                     moderator = rownames(res$b),
+                     estimate = res$b[,1],
+                     se = res$se,
+                     tval = res$zval,
+                     ci_lb = res$ci.lb,
+                     ci_ub = res$ci.ub,
+                     pval = res$pval)
+    
+    
+    meta_reg_df <- bind_rows(meta_reg_df,res_df)
+    
+    
+    
+  }
+  
+  meta_reg_df <- meta_reg_df %>% mutate(rho = rho)
+  df <- df %>% bind_rows(meta_reg_df) %>% 
+    mutate_if(is.numeric, round, 3)  %>% 
+    write_csv("meta_reg.csv")
+  
+  }
+
+
+df_format <- df %>%
+  mutate_if(is.numeric, as.character)  %>% 
+  filter(moderator != "intrcpt") %>% 
+  filter(rho == .5) %>%
+  mutate(reg_num = reg_num,
+         est = estimate,
+         se = se,
+         tval = tval,
+         pval = pval,
+         ci95 = paste0(" [", ci_lb, ", ", ci_ub,"]"))  %>%
+  select(moderator, est,se,tval, pval, ci95) %>% 
+  write_csv("meta_reg_format.csv")
+
+print("Meta-regression results with effect sizes saved")
+
+  
+  
+
+
+
+
+
+
+```
+ 
+
+
+
+```{r}  
   ### for extreme group design studies we calculate average prop. of females in the sample (weighted average).
   ###  some studies are removed due to missing gender information
   dat <- dat %>% 
