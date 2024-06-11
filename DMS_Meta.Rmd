@@ -316,6 +316,8 @@ plot_sensitivity_rho(dat = read_rds("overall_sensitivity_rho.rds"))
 plot_forestplot_ma(m = read_rds("mlma_%s.rds"))
 
 
+datb <- dat[!(is.na(dat$culture_powerdistance)),] 
+
 ```
 
 
@@ -391,7 +393,7 @@ for (rho in rho_vec) {
                   data = datb, 
                   rho = rho)
   
-   m[[4]] <- rma.mv(yi ~ 0 + culture_powerdistance,
+   m[[4]] <- rma.mv(yi ~ 1 + culture_powerdistance,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -401,7 +403,8 @@ for (rho in rho_vec) {
   
   
   ### Culture - Individualism as moderator--------------------------------------
-  m[[5]] <- rma.mv(yi ~ 0 + culture_individualism,
+
+  m[[5]] <- rma.mv(yi ~ 1 + culture_individualism,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -409,8 +412,9 @@ for (rho in rho_vec) {
   
   m[[5]] <- robust(m[[5]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ### Culture - MTAS as moderator--------------------------------------
-  m[[6]] <- rma.mv(yi ~ 0 + culture_mtas,
+  ### Culture - MTAS as moderator-----------------------------------------------
+
+  m[[6]] <- rma.mv(yi ~ 1 + culture_mtas,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -419,7 +423,8 @@ for (rho in rho_vec) {
   m[[6]] <- robust(m[[6]], cluster = study_id_1, clubSandwich = TRUE)
   
   ### Culture - Uncertainty avoidance as moderator--------------------------------------
-  m[[7]] <- rma.mv(yi ~ 0 + culture_uncertaintyavoidance,
+
+  m[[7]] <- rma.mv(yi ~ 1 + culture_uncertaintyavoidance,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -428,7 +433,9 @@ for (rho in rho_vec) {
   m[[7]] <- robust(m[[7]], cluster = study_id_1, clubSandwich = TRUE)
   
   ### Culture - Long-term orientation as moderator--------------------------------------
-  m[[8]] <- rma.mv(yi ~ 0 + culture_longtermorientation,
+
+  
+  m[[8]] <- rma.mv(yi ~ 1 + culture_longtermorientation,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -437,7 +444,8 @@ for (rho in rho_vec) {
   m[[8]] <- robust(m[[8]], cluster = study_id_1, clubSandwich = TRUE)
   
   ### Culture - Indulgence as moderator--------------------------------------
-  m[[9]] <- rma.mv(yi ~ 0 + culture_indulgence,
+
+  m[[9]] <- rma.mv(yi ~ 1 + culture_indulgence,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -513,70 +521,10 @@ print("Meta-regression results with effect sizes saved")
 ```
  
 
-
-
-```{r}  
-  ### for extreme group design studies we calculate average prop. of females in the sample (weighted average).
-  ###  some studies are removed due to missing gender information
-  dat <- dat %>% 
-    rowwise() %>% 
-    mutate(prop_female_gen = 
-             case_when(is.na(gender_female_value) & !is.na(young_prop_female) & !is.na(old_prop_female) ~ ((young_total_n/n_incl_es)*young_prop_female)+((old_total_n/n_incl_es)*old_prop_female),
-                       !is.na(prop_female) ~ prop_female)) %>% 
-    ungroup()
-  
-  m[[2]] <- rma.mv(yi ~ 1 + prop_female_gen,
-                   V = V_mat,
-                   random = ~ 1 | study_id/es_id, # random effect of study and estimate
-                   data=dat,
-                   digits=4)
-  
-  m[[2]] <- robust(m[[2]], cluster = study_id, clubSandwich = TRUE)
-  
-  
-  
-
-```
-
-
-### Culture
+## Test multiple moderator model with all sig moderators
 ```{r}
 
-# Power distance
-
-## filter effect size datasets
-sdat <- dat[!(is.na(dat$culture_powerdistance)),]
-  
-  
-## fitting multilevel model
-culpd <- conduct_mlma(dat = sdat, rho = rho)
-culpd <- robust(culpd, cluster = study_id_1, clubSandwich = TRUE)
-  
-  
-## save output
-write_rds(culpd, "mlma_culture_pd.rds")
-
-culpd
-
-# Individualism
-
-
-
-
-# Gender - Pre-registered
-
-
-# Decision topic - Pre-registered
-
-
-# MDMQ or GDMS - Pre-registered
-
-
-# Year of publication - Pre-registered
-
-
-# Avoidance or dependence from GDMS
+multiplemoderator <- rma.mv(yi, vi, mods = ~ HighExp + LowExp + Subj + PerfPay, random =list(~ 1 | ID_2, ~ 1 | ID_1), tdist=TRUE, data=mlmdat)summary(multiplemoderator, digits=3)
 
 ```
-
 
