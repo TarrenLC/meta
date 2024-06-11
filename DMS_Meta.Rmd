@@ -455,14 +455,7 @@ for (rho in rho_vec) {
   
   m[[10]] <- robust(m[[10]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ## Participant sample as moderator-----------------------------------------------------
-  m[[11]] <- rma.mv(yi ~ 0 + sample_type,
-                   V = V_mat,
-                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
-                   data=dat,
-                   digits=4)
-  
-  m[[11]] <- robust(m[[11]], cluster = study_id_1, clubSandwich = TRUE)
+
   
    # expand the list of models in a tidy format
   meta_reg_df <- NULL
