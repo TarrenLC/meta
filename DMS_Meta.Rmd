@@ -21,8 +21,9 @@ source("compute_es.R")
 source("conduct_mlma.R")
 source("table_es_overview.R")
 source("conduct_sensitivity_rho.R")
-source("conduct_cma.R")
-source("conduct_leave1out.R")
+source("plot_sensitivity_rho.R")
+source("plot_forestplot_ma.R")
+
 
 ```
 
@@ -366,9 +367,7 @@ for (rho in rho_vec) {
   dat <- dat %>% 
     rowwise() %>% 
     mutate(prop_female_gen = 
-             case_when(is.na(gender_female_value) & !is.na(young_prop_female) & !is.na(old_prop_female) ~
-                         ((young_total_n/n_incl_es)*young_prop_female)+((old_total_n/n_incl_es)*old_prop_female),
-                       !is.na(prop_female) ~ prop_female)) %>% 
+             case_when(!is.na(gender_female_value) ~ gender_female_value)) %>% 
     ungroup()
   
   m[[3]] <- rma.mv(yi ~ 1 + prop_female_gen,
