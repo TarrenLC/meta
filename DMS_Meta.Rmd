@@ -316,12 +316,11 @@ plot_sensitivity_rho(dat = read_rds("overall_sensitivity_rho.rds"))
 plot_forestplot_ma(m = read_rds("mlma_%s.rds"))
 
 
-datb <- dat[!(is.na(dat$culture_powerdistance)),] 
 
 ```
 
 
-# Moderator testing
+## Moderator testing
 ```{r}
 
 # transform data into an escalc object
@@ -464,6 +463,15 @@ for (rho in rho_vec) {
   m[[10]] <- robust(m[[10]], cluster = study_id_1, clubSandwich = TRUE)
   
 
+   ## Year of publication as moderator-----------------------------------------
+  m[[11]] <- rma.mv(yi ~ 1 + year,
+                   V = V_mat,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+  m[[11]] <- robust(m[[11]], cluster = study_id_1, clubSandwich = TRUE)
+  
   
    # expand the list of models in a tidy format
   meta_reg_df <- NULL
@@ -521,10 +529,124 @@ print("Meta-regression results with effect sizes saved")
 ```
  
 
-## Test multiple moderator model with all sig moderators
+### Covariate overview
 ```{r}
 
-multiplemoderator <- rma.mv(yi, vi, mods = ~ HighExp + LowExp + Subj + PerfPay, random =list(~ 1 | ID_2, ~ 1 | ID_1), tdist=TRUE, data=mlmdat)summary(multiplemoderator, digits=3)
+covariates <- c("cor_type", "dv")
+
+# read effect size datasets
+  dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
+  
+  df <- NULL
+  for (covar in covariates) {
+    
+
+    dt <- dat %>%
+      group_by_at(covar) %>%          
+      summarise(k = n(),
+                predictor = covar) %>% 
+      rename("level" = all_of(covar))
+    
+    df <- bind_rows(df, dt)
+  }
+  
+  print(df)
+  
+  write.csv(df, file = "covariate_overview.csv")
+  
+
+
+```
+
+### Multiple moderator model including all sig variables
+```{r}
+
+# read effect size datasets
+dat <- read.csv(file = "effect_sizes.csv")
+
+dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat )
+dat$study_id_1 <- as.character(dat$study_id_1)
+dat$es_id <- as.character(dat$es_id)
+  
+multiplemoderator <- rma.mv(yi,
+                            V = vi,
+                            random = ~ 1 | study_id_1/es_id,
+                            data=dat,
+                            mods = ~dv + cor_type,
+                            tdist=TRUE)
+
+summary(multiplemoderator, digits=3)
+
+multiplemoderator <- robust(multiplemoderator, cluster = study_id_1, clubSandwich = TRUE)
+
+```
+
+
+## Egger's regression test
+
+```{r}
+
+
+### Egger's regression test
+
+rho = .5
+egger_df <- NULL
+  
+  for (preci in c("se", "invn")) {
+    
+    # read effect size datasets
+    dat <- read.csv(file = "effect_sizes.csv")
+    dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat)
+    dat$study_id_1 <- as.character(dat$study_id_1)
+    dat$es_id <- as.character(dat$es_id)
+    
+    # compute a "precision" index (standard error or inverse sample size)
+    
+    if (preci == "se") {
+      dat$precision <- sqrt(dat$cor_vi)
+    } 
+    if (preci == "invn") {
+      dat$precision <- 1/dat$n_incl_es
+    } 
+    
+    # run meta-regression with "precision" as a predictor
+    
+    ### create approx. V matrix assuming that the effect sizes within studies
+    ###  are correlated with a correlation coefficient of value 'rho'
+    V_mat <- vcalc(vi = vi,
+                   cluster = study_id_1,
+                   obs = es_id,
+                   data = dat,
+                   rho = rho)
+    
+    ### Egger's Test: fit multilevel model using the approximate V matrix + 
+    ### predictor to represent precision 
+    egger <- rma.mv(yi ~ 1 + precision,  
+                    V = V_mat,
+                    random = ~ 1| study_id_1/es_id, 
+                    data = dat)
+    
+    # apply RVE
+    egger <- robust(egger, cluster = study_id_1, clubSandwich = TRUE)
+    
+    
+    # could also use broom::tidy()
+    res_df <- tibble(precision_indc = preci,
+                     moderator = rownames(egger$b),
+                     estimate = egger$b[,1],
+                     se = egger$se,
+                     tval = egger$zval,
+                     ci_lb = egger$ci.lb,
+                     ci_ub = egger$ci.ub,
+                     pval = egger$pval)
+    
+    
+    egger_df <- bind_rows(egger_df,res_df)
+  }
+  
+  # save output
+  write_rds(egger_df, file = "eggers.rds")
+
 
 ```
 
