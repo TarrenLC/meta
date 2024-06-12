@@ -466,7 +466,7 @@ for (rho in rho_vec) {
   
   
   ## Decision-style outcome as moderator-----------------------------------------
-  ## Avoidance dv as reference
+  ## Avoidant as reference level
   m[[10]] <- rma.mv(yi ~ 1 + dv,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
@@ -477,7 +477,7 @@ for (rho in rho_vec) {
   
 
    ## Year of publication as moderator-----------------------------------------
-  m[[11]] <- rma.mv(yi ~ 1 + year,
+  m[[11]] <- rma.mv(yi ~ 1 + year_of_publication,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=dat,
@@ -581,26 +581,36 @@ covariates <- c("cor_type", "dv")
 
 ```
 
-### Multiple moderator model including all sig variables
+### Additional analyses on sig moderators
 ```{r}
 
-# read effect size datasets
+## Splitting by decision context and effect size metric
+
+rho = .5
 dat <- read.csv(file = "effect_sizes.csv")
 
-dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat )
-dat$study_id_1 <- as.character(dat$study_id_1)
-dat$es_id <- as.character(dat$es_id)
+##### Context
+table(dat$context)
+
+### UPDATE TO HAVE CODE FOR EACH LEVEL OF CONTEXT ###
+contexts <- c("Military tactical planning", "Risky driving", "Smartphone use ",
+              "Stressful situations", "Workplace email use")
+for (con in contexts) {
+  # filter effect size datasets
+  sdat <- dat %>% filter(context == con) %>% 
+    mutate(con)
   
-multiplemoderator <- rma.mv(yi,
-                            V = vi,
-                            random = ~ 1 | study_id_1/es_id,
-                            data=dat,
-                            mods = ~dv + cor_type,
-                            tdist=TRUE)
+  # fitting multilevel model
+  mlma <- conduct_mlma(dat = sdat, rho = rho)
+  mlma <- robust(mlma, cluster = study_id_1, clubSandwich = TRUE)
+  
+  
+  # save output
+  write_rds(mlma, sprintf("mlma_%s.rds", con))
+}
 
-summary(multiplemoderator, digits=3)
 
-multiplemoderator <- robust(multiplemoderator, cluster = study_id_1, clubSandwich = TRUE)
+
 
 ```
 
