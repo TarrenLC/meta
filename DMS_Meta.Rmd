@@ -16,6 +16,7 @@ library(metafor) # compute effect sizes
 library(effectsize)# compute effect sizes
 library(clubSandwich)
 library(TOSTER)
+library(MAd) # To create composite pooled effect size estimate
 
 source("compute_es.R")
 source("conduct_mlma.R")
@@ -595,91 +596,156 @@ table(dat$context)
 ### UPDATE TO HAVE CODE FOR EACH LEVEL OF CONTEXT ###
 contexts <- c("Military tactical planning", "Risky driving", "Smartphone use ",
               "Stressful situations", "Workplace email use")
-for (con in contexts) {
-  # filter effect size datasets
-  sdat <- dat %>% filter(context == con) %>% 
-    mutate(con)
-  
-  # fitting multilevel model
-  mlma <- conduct_mlma(dat = sdat, rho = rho)
-  mlma <- robust(mlma, cluster = study_id_1, clubSandwich = TRUE)
-  
-  
-  # save output
-  write_rds(mlma, sprintf("mlma_%s.rds", con))
-}
 
 
+### General/unspecified
+df_general <- dat %>% 
+  subset(context == "General/Unspecified")
 
+
+# fitting multilevel model
+mlma_gen <- conduct_mlma(dat = df_general, rho = rho)
+mlma_gen <- robust(mlma_gen, cluster = study_id_1, clubSandwich = TRUE)
+mlma_gen
+
+
+### Military tactical planning  #### ONLY 2 EFFECT SIZES
+df_military <- dat %>% 
+  subset(context == "Military tactical planning")
+
+
+# fitting multilevel model
+mlma_m <- conduct_mlma(dat = df_military, rho = rho)
+mlma_m <- robust(mlma_m, cluster = study_id_1, clubSandwich = TRUE)
+  
+
+### Risky driving
+df_risky <- dat %>% 
+  subset(context == "Risky driving")
+
+
+# fitting multilevel model
+mlma_rd <- conduct_mlma(dat = df_risky, rho = rho)
+mlma_rd <- robust(mlma_rd, cluster = study_id_1, clubSandwich = TRUE)
+
+mlma_rd
+  
+### Smart phone use
+df_phone <- dat %>% 
+  subset(context == "Smartphone use")
+
+
+# fitting multilevel model
+mlma_sp <- conduct_mlma(dat = df_phone, rho = rho)
+mlma_sp <- robust(mlma_sp, cluster = study_id_1, clubSandwich = TRUE)
+
+mlma_sp
+
+### Stressful situations
+df_stress <- dat %>% 
+  subset(context == "Stressful situations")
+
+
+# fitting multilevel model
+mlma_sp <- conduct_mlma(dat = df_stress, rho = rho)
+mlma_sp <- robust(mlma_sp, cluster = study_id_1, clubSandwich = TRUE)
+
+mlma_sp
+
+
+### Workplace email #### ONLY 1 EFFECT SIZE #####
+df_email <- dat %>% 
+  subset(context == "Workplace email use")
+
+
+# fitting multilevel model
+mlma_em <- conduct_mlma(dat = df_email, rho = rho)
+mlma_em <- robust(mlma_em, cluster = study_id_1, clubSandwich = TRUE)
+mlma_me
+
+
+# If sig, do equivalence test.
 
 ```
 
 
-## Egger's regression test
-
+# Publication bias
+## RFX Model
 ```{r}
 
+overall <- rma.mv(yi, vi, random = list(~ 1 | es_id, ~ 1 | study_id_1), tdist= TRUE, data=dat, method = "ML")
 
-### Egger's regression test
+summary(overall, digits=3)
 
-rho = .5
-egger_df <- NULL
-  
-  for (preci in c("se", "invn")) {
-    
-    # read effect size datasets
-    dat <- read.csv(file = "effect_sizes.csv")
-    dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat)
-    dat$study_id_1 <- as.character(dat$study_id_1)
-    dat$es_id <- as.character(dat$es_id)
-    
-    # compute a "precision" index (standard error or inverse sample size)
-    
-    if (preci == "se") {
-      dat$precision <- sqrt(dat$cor_vi)
-    } 
-    if (preci == "invn") {
-      dat$precision <- 1/dat$n_incl_es
-    } 
-    
-    # run meta-regression with "precision" as a predictor
-    
-    ### create approx. V matrix assuming that the effect sizes within studies
-    ###  are correlated with a correlation coefficient of value 'rho'
-    V_mat <- vcalc(vi = vi,
-                   cluster = study_id_1,
-                   obs = es_id,
-                   data = dat,
-                   rho = rho)
-    
-    ### Egger's Test: fit multilevel model using the approximate V matrix + 
-    ### predictor to represent precision 
-    egger <- rma.mv(yi ~ 1 + precision,  
-                    V = V_mat,
-                    random = ~ 1| study_id_1/es_id, 
-                    data = dat)
-    
-    # apply RVE
-    egger <- robust(egger, cluster = study_id_1, clubSandwich = TRUE)
-    
-    
-    # could also use broom::tidy()
-    res_df <- tibble(precision_indc = preci,
-                     moderator = rownames(egger$b),
-                     estimate = egger$b[,1],
-                     se = egger$se,
-                     tval = egger$zval,
-                     ci_lb = egger$ci.lb,
-                     ci_ub = egger$ci.ub,
-                     pval = egger$pval)
-    
-    
-    egger_df <- bind_rows(egger_df,res_df)
-  }
-  
-  # save output
-  write_rds(egger_df, file = "eggers.rds")
+#funnel plot; image dimensions W = 621, H = 692 
 
+funnel.rma(overall, xlab = "effect size")
+
+############ONE EFFECT SIZE PER STUDY#########################
+#aggregate within-study effect sizes;
+#while taking into account correlations among within-study outcomes;
+#using Borenstein et al. (2009) procedure and conservative correlation r=1.0
+
+dat %>% group_by(first_author)
+
+dat$sei <- sqrt(dat$cor_vi)
+
+newdata <- select(dat, study_id_1, es_id, first_author, yi, sei, vi)
+
+attach(newdata)
+
+newdata$study_id_1<-as.character(newdata$study_id_1)
+newdata$first_author<-as.character(newdata$first_author)
+names<-newdata[,c("study_id_1","first_author")]
+duplicated(names)
+names1<-names[!duplicated(names), ]
+names1<-unique(names)
+data1<-agg(id=study_id_1,es=yi,var=vi,method="BHHR",cor= 1.0,mod=NULL, data=dat)
+
+print(data1)
+#export to excelwrite.table(data1, file = "data1.csv", sep=",")d
+
+data1$first_author<-names1$first_author
+print(data1)
+
+#univariate model with maximum likelihood estimation
+
+oneES <- rma.uni(es, var, data=data1, method = "ML")
+summary(oneES, digits=3)
+
+#significant effect size
+#funnel plot; image dimensions W = 621, H = 692
+funnel.rma(oneES, xlab = "effect size") 
+
+#trim and fill 
+#Duval and Tweedie (2000) say that the L0 or R0 estimators should be used.
+leftside<-trimfill(oneES, side="left", estimator = "R0")
+rightside<-trimfill(oneES, side="right", estimator = "R0")
+funnel.rma(leftside, xlab = "effect size (d)") #621 x 692 dimensions
+funnel.rma(rightside, xlab = "effect size (d)") #621 x 692 dimensions
+summary(leftside) 
+
+#zero missing studies
+
+summary(rightside) 
+#zero missing studies
+
+#Egger's regression test for funnel plot asymmetry 
+
+regtest(oneES, model = "rma", predictor = "sei") 
+
+#Order rows by values of a column#(low to high). 
+OneES_data<-dplyr::arrange(data1, es)
+#run new univariate meta for forest plot
+oneES1 <- rma.uni(es, var, data=OneES_data, method = "ML")
+summary(oneES1, digits=3)
+#Forest plot
+forest.rma(oneES1, annotate=F, slab = OneES_data$first_author, addfit = T, 
+           order = "obs", xlab = NA, alim= c(-0.50,1.5), xintercept=0,
+           xlim =c(0,1.15), cex = .5, cex.lab = c(0,1), ylim = c(0,135), 
+           refline = NA)
+
+detach(newdata)
 
 ```
 
