@@ -18,6 +18,7 @@ library(clubSandwich)
 library(TOSTER)
 library(MAd) # To create composite pooled effect size estimate
 
+
 source("compute_es.R")
 source("conduct_mlma.R")
 source("table_es_overview.R")
@@ -556,7 +557,7 @@ print("Meta-regression results with effect sizes saved")
 ### Covariate overview
 ```{r}
 
-covariates <- c("cor_type", "dv")
+covariates <- c("cor_type", "context")
 
 # read effect size datasets
   dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
@@ -592,10 +593,6 @@ dat <- read.csv(file = "effect_sizes.csv")
 
 ##### Context
 table(dat$context)
-
-### UPDATE TO HAVE CODE FOR EACH LEVEL OF CONTEXT ###
-contexts <- c("Military tactical planning", "Risky driving", "Smartphone use ",
-              "Stressful situations", "Workplace email use")
 
 
 ### General/unspecified
@@ -741,11 +738,12 @@ oneES1 <- rma.uni(es, var, data=OneES_data, method = "ML")
 summary(oneES1, digits=3)
 #Forest plot
 forest.rma(oneES1, annotate=F, slab = OneES_data$first_author, addfit = T, 
-           order = "obs", xlab = NA, alim= c(-0.50,1.5), xintercept=0,
-           xlim =c(0,1.15), cex = .5, cex.lab = c(0,1), ylim = c(0,135), 
-           refline = NA)
+           order = "obs", xlab = NA, xintercept=0,
+           mlab="Pooled Estimate")
 
 detach(newdata)
 
 ```
+
+
 
