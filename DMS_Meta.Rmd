@@ -17,7 +17,9 @@ library(effectsize)# compute effect sizes
 library(clubSandwich)
 library(TOSTER)
 library(MAd) # To create composite pooled effect size estimate
-
+library(metapower) # Power analyses
+library(ggplot2) # To plot
+library(cowplot) # To plot
 
 source("compute_es.R")
 source("conduct_mlma.R")
@@ -311,6 +313,8 @@ write_rds(overall_sensitivity, file = "overall_sensitivity_rho.rds")
 
 plot_sensitivity_rho(dat = read_rds("overall_sensitivity_rho.rds"))
 
+# No major changes
+
 ```
 
 ## Forest plot
@@ -332,7 +336,7 @@ df <- NULL
 rho_vec <- seq(from = .1, to = .9, by = .1)
 
 # Center age range moderator
-dat$dec_diff_gmc <- scale(dat$dec_diff, scale=FALSE)
+dat$age_diff_gmc <- scale(dat$age_diff, scale=FALSE)
 dat$culture_individualism_gmc <- scale(dat$culture_individualism, scale=FALSE)
 dat$culture_powerdistance_gmc <- scale(dat$culture_powerdistance, scale=FALSE)
 dat$culture_mtas_gmc <- scale(dat$culture_mtas, scale=FALSE)
@@ -357,7 +361,7 @@ for (rho in rho_vec) {
   # fit multilevel models using approximate V matrix
   ## age range in decades as moderator------------------------------------------
   ### some studies are removed due to missing age information
-  m[[1]] <- rma.mv(yi ~ 1 + dec_diff,
+  m[[1]] <- rma.mv(yi ~ 1 + age_diff_gmc,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=dat,
@@ -376,7 +380,7 @@ for (rho in rho_vec) {
   
   m[[2]] <- robust(m[[2]], cluster = study_id_1, clubSandwich = TRUE)
  
-  
+  ## Females--------------------------------------------------------------------
   ### for extreme group design studies we calculate average prop. of females in the sample (weighted average).
   ###  some studies are removed due to missing gender information
   dat <- dat %>% 
@@ -406,7 +410,7 @@ for (rho in rho_vec) {
                   data = datb, 
                   rho = rho)
   
-   m[[4]] <- rma.mv(yi ~ 1 + culture_powerdistance,
+   m[[4]] <- rma.mv(yi ~ 1 + culture_powerdistance_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -417,7 +421,7 @@ for (rho in rho_vec) {
   
   ### Culture - Individualism as moderator--------------------------------------
 
-  m[[5]] <- rma.mv(yi ~ 1 + culture_individualism,
+  m[[5]] <- rma.mv(yi ~ 1 + culture_individualism_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -427,7 +431,7 @@ for (rho in rho_vec) {
   
   ### Culture - MTAS as moderator-----------------------------------------------
 
-  m[[6]] <- rma.mv(yi ~ 1 + culture_mtas,
+  m[[6]] <- rma.mv(yi ~ 1 + culture_mtas_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -437,7 +441,7 @@ for (rho in rho_vec) {
   
   ### Culture - Uncertainty avoidance as moderator--------------------------------------
 
-  m[[7]] <- rma.mv(yi ~ 1 + culture_uncertaintyavoidance,
+  m[[7]] <- rma.mv(yi ~ 1 + culture_uncertaintyavoidance_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -448,7 +452,7 @@ for (rho in rho_vec) {
   ### Culture - Long-term orientation as moderator--------------------------------------
 
   
-  m[[8]] <- rma.mv(yi ~ 1 + culture_longtermorientation,
+  m[[8]] <- rma.mv(yi ~ 1 + culture_longtermorientation_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -458,7 +462,7 @@ for (rho in rho_vec) {
   
   ### Culture - Indulgence as moderator--------------------------------------
 
-  m[[9]] <- rma.mv(yi ~ 1 + culture_indulgence,
+  m[[9]] <- rma.mv(yi ~ 1 + culture_indulgence_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -665,6 +669,23 @@ mlma_me
 
 ```
 
+### Main effects model
+```{r}
+
+# transform data into an escalc object
+dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat )
+
+res.a1 <- rma(yi, vi, mods = ~ age_diff_gmc + prop_female_gen +
+                culture_powerdistance_gmc + culture_individualism_gmc +
+                culture_mtas_gmc + culture_uncertaintyavoidance_gmc +
+                culture_longtermorientation_gmc + culture_indulgence_gmc +
+                dv + context + year_of_publication, data=dat)
+
+res.a1
+
+```
+
+
 
 # Publication bias
 ## RFX Model
@@ -745,5 +766,24 @@ detach(newdata)
 
 ```
 
+
+# Power
+```{r}
+
+
+power1 <- mpower(effect_size = 0.11,
+                 study_size = 333, # Average of total number of Ps in each study?
+                 k = 35,
+                 i2 = 0.90,
+                 es_type = "r")
+summary(power1)
+
+power1_plot <- plot_mpower(power1)
+power1_plot <- power1_plot + ggtitle("Power analysis with a total sample size of 333 \nper study")
+power1_plot
+
+
+
+```
 
 
