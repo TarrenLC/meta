@@ -1,17 +1,18 @@
 
+#' `compute_es()` creates "effect_sizes_pref.csv", by computing standardized effect sizes using the outcomes 
+#' information (e.g., means, SDs, correlations) in 'clean_study_data_*.csv'.
+#' @param data Data file for processing
+#' @returns A data frame with details of all the studies of the specified econ. preference (e.g., first author, 
+#' year of publication, sample size) along with the standardized effect size and their respective sampling variance
+#' that is saved as a csv file in a designated folder. 
+
+# Adapted from https://github.com/cdsbasel/cumulative/blob/main/code/functions/compute_es.R
 
 compute_es <- function(data) {
-  
-  #' `compute_es()` creates "effect_sizes_pref.csv", by computing standardized effect sizes using the outcomes 
-  #' information (e.g., means, SDs, correlations) in 'clean_study_data_*.csv'.
-  #' @param data Data file for processing
-  #' @returns A data frame with details of all the studies of the specified econ. preference (e.g., first author, 
-  #' year of publication, sample size) along with the standardized effect size and their respective sampling variance
-  #' that is saved as a csv file in a designated folder. 
+
   
   # EFFECT SIZES ----------------------------------------------------------
   
-  # if (preference == "avoidance") {
   # means and SDS (young vs. old)
   smd_dat <- df1 %>% 
     subset(analysis == "Ms and SDs")
@@ -29,25 +30,13 @@ compute_es <- function(data) {
                     vtype = "LS",
                     replace=FALSE)
   
-  #smd_dat_av_ado <- df1 %>% 
-  #filter(age_variable_study_1 %in% c("Categorical (young/older groups")|
-  #  groups == "Young/older adolescents")
-  
-  #  smd_dat_av_ado <- escalc(measure = "RPB",   #                 m1i = adolescents_younger_avoidance_mean, 
-  #              m2i = adolescents_younger_avoidance_sd,
-  #              sd1i = adolescents_older_avoidance_mean,
-  #              sd2i = adolescents_older_avoidance_sd,
-  #              n1i = number_of_older_adults_categorical_var_study_1,
-  #              n2i = number_of_young_adults_categorical_var_study_1,
-  #              dat = smd_dat_av_ado,
-  #             vtype = "LS",
-  #             replace=FALSE)
-  
+
   smd_dat <- smd_dat %>% 
     filter(analysis == "Ms and SDs") %>% 
-    # calculate age difference in decades (mean or midpoint in age range)
-    mutate(dec_diff = case_when(!is.na(age_m_young_adults) &!is.na(age_m_older_adults) ~ .1*(age_m_older_adults-age_m_young_adults),
-                                TRUE ~ .1*(((min_age_older+max_age_older)/2) - ((min_age_young+max_age_young)/2))),
+    # calculate mean age difference in years (mean or midpoint in age range)
+    mutate(age_diff = ifelse(!is.na(age_m_young_adults) & (!is.na(age_m_older_adults)),
+                             (age_m_older_adults - age_m_young_adults),
+                             (((min_age_older+max_age_older)/2) - (min_age_young+max_age_young)/2)),
            cor_type = "RPB")
   
   
@@ -73,7 +62,7 @@ compute_es <- function(data) {
   
   
   cor_dat <-  cor_dat %>% 
-    # calculate age difference in decades
+    # calculate age difference in years
     mutate(age_min = case_when(analysis == "Both" ~ as.numeric(min_age_young),
                                TRUE ~ min_age), # in case age min/max info is unavailable
            age_max = case_when(analysis == "Both" ~ as.numeric(max_age_older),
@@ -81,13 +70,13 @@ compute_es <- function(data) {
            cor_type = "COR",
            study_design = case_when(analysis == "Both" ~"extreme_group",
                                     analysis == "Corrleation" ~ "continuous")) %>% 
-    mutate(dec_diff =  .1*(max_age - min_age))
+    mutate(age_diff =  (max_age - min_age))
   
   
   
   # bind data frames
   es <- bind_rows(smd_dat, cor_dat) %>%
-    select(study_id, outcome_num, yi, vi, cor_type, age_variable_study_1, dec_diff) %>%
+    select(study_id, outcome_num, yi, vi, cor_type, age_variable_study_1, age_diff) %>%
     rename(cor_yi = yi,
            cor_vi = vi) %>% 
     full_join(df1, by = c("study_id", "outcome_num")) %>% 
@@ -137,13 +126,13 @@ compute_es <- function(data) {
            dv, analysis,
            culture_powerdistance, culture_individualism, culture_mtas,
            culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
-           culture_indulgence, topic, sample_type, groups, analysis, total_number_of_participants_study_1,
+           culture_indulgence, context, sample_type, groups, analysis, total_number_of_participants_study_1,
            number_of_older_adults_categorical_var_study_1, number_of_young_adults_categorical_var_study_1,
            gender_female_value,
            age_m_young_adults, age_m_older_adults, age_m_value, 
            min_age_young, min_age_older, min_age, 
            max_age_young, max_age_older, max_age, 
-           dec_diff, young_adults_dv_mean, young_adults_dv_sd,
+           age_diff, young_adults_dv_mean, young_adults_dv_sd,
            older_adults_dv_mean, older_adults_dv_sd,
            dv_age_result, cor_yi, cor_vi, cor_type,
            es_id, n_incl_es, reversed_es, author_extract)

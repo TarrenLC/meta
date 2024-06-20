@@ -1,19 +1,21 @@
 
+#' `conduct_mlma()` computes a pooled effect size using the information from "effect_sizes.csv" by 
+#' fitting a three-level meta-analytic model. 
+#' Follows recommendations from: https://wviechtb.github.io/metafor/reference/misc-recs.html?q=sandw#details
+#' @param dat A data frame containing effect sizes (i.e., "effect_sizes_pref.csv")
+#' @param rho value of the correlation of the sampling errors within clusters
+#' @returns a metafor rma.mv object.
+#' @examples
+
+# Adapted from https://github.com/cdsbasel/cumulative/blob/main/code/functions/conduct_mlma.R
+
 # library(tidyverse) # for data wrangling
 # library(metafor) # compute effect sizes
 
 
 conduct_mlma <- function(dat, rho) {
   
-  
-  #' `conduct_mlma()` computes a pooled effect size using the information from "effect_sizes.csv" by 
-  #' fitting a three-level meta-analytic model. 
-  #' Follows recommendations from: https://wviechtb.github.io/metafor/reference/misc-recs.html?q=sandw#details
-  #' @param dat A data frame containing effect sizes (i.e., "effect_sizes_pref.csv")
-  #' @param rho value of the correlation of the sampling errors within clusters
-  #' @returns a metafor rma.mv object.
-  #' @examples
-  
+
   # transform data into an escalc object
   dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat )
   dat$study_id_1 <- as.character(dat$study_id_1)
