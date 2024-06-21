@@ -20,6 +20,7 @@ library(MAd) # To create composite pooled effect size estimate
 library(metapower) # Power analyses
 library(ggplot2) # To plot
 library(cowplot) # To plot
+library(patchwork)
 
 source("compute_es.R")
 source("conduct_mlma.R")
@@ -27,6 +28,7 @@ source("table_es_overview.R")
 source("conduct_sensitivity_rho.R")
 source("plot_sensitivity_rho.R")
 source("plot_forestplot_ma.R")
+source("plot_equivalence_test.R")
 
 
 ```
@@ -395,9 +397,9 @@ for (rho in rho_vec) {
                    data=dat,
                    digits=4)
   
-  m[[3]] <- robust(m[[3]], cluster = study_id, clubSandwich = TRUE)
+  m[[3]] <- robust(m[[3]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ### Culture - Power distance as moderator-------------------------------------
+  ## Culture - Power distance as moderator-------------------------------------
   
   # Exclude NA
   datb <- dat[!(is.na(dat$culture_powerdistance)),] # exclude NA
@@ -410,7 +412,7 @@ for (rho in rho_vec) {
                   data = datb, 
                   rho = rho)
   
-   m[[4]] <- rma.mv(yi ~ 1 + culture_powerdistance_gmc,
+  m[[4]] <- rma.mv(yi ~ 1 + culture_powerdistance_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -419,7 +421,7 @@ for (rho in rho_vec) {
   m[[4]] <- robust(m[[4]], cluster = study_id_1, clubSandwich = TRUE)
   
   
-  ### Culture - Individualism as moderator--------------------------------------
+  ## Culture - Individualism as moderator--------------------------------------
 
   m[[5]] <- rma.mv(yi ~ 1 + culture_individualism_gmc,
                    V = V_matb,
@@ -429,7 +431,7 @@ for (rho in rho_vec) {
   
   m[[5]] <- robust(m[[5]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ### Culture - MTAS as moderator-----------------------------------------------
+  ## Culture - MTAS as moderator-----------------------------------------------
 
   m[[6]] <- rma.mv(yi ~ 1 + culture_mtas_gmc,
                    V = V_matb,
@@ -439,7 +441,7 @@ for (rho in rho_vec) {
   
   m[[6]] <- robust(m[[6]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ### Culture - Uncertainty avoidance as moderator--------------------------------------
+  ## Culture - Uncertainty avoidance as moderator--------------------------------------
 
   m[[7]] <- rma.mv(yi ~ 1 + culture_uncertaintyavoidance_gmc,
                    V = V_matb,
@@ -449,7 +451,7 @@ for (rho in rho_vec) {
   
   m[[7]] <- robust(m[[7]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ### Culture - Long-term orientation as moderator--------------------------------------
+  ## Culture - Long-term orientation as moderator--------------------------------------
 
   
   m[[8]] <- rma.mv(yi ~ 1 + culture_longtermorientation_gmc,
@@ -460,7 +462,7 @@ for (rho in rho_vec) {
   
   m[[8]] <- robust(m[[8]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ### Culture - Indulgence as moderator--------------------------------------
+  ## Culture - Indulgence as moderator--------------------------------------
 
   m[[9]] <- rma.mv(yi ~ 1 + culture_indulgence_gmc,
                    V = V_matb,
@@ -559,7 +561,7 @@ print("Meta-regression results with effect sizes saved")
 ```
  
 
-### Covariate overview
+### Covariates
 ```{r}
 
 covariates <- c("cor_type", "context")
@@ -588,101 +590,37 @@ covariates <- c("cor_type", "context")
 
 ```
 
-### Additional analyses on sig moderators
-```{r}
-
-## Splitting by decision context and effect size metric
-
-rho = .5
-dat <- read.csv(file = "effect_sizes.csv")
-
-##### Context
-table(dat$context)
-
-
-### General/unspecified
-df_general <- dat %>% 
-  subset(context == "General/Unspecified")
-
-
-# fitting multilevel model
-mlma_gen <- conduct_mlma(dat = df_general, rho = rho)
-mlma_gen <- robust(mlma_gen, cluster = study_id_1, clubSandwich = TRUE)
-mlma_gen
-
-
-### Military tactical planning  #### ONLY 2 EFFECT SIZES
-df_military <- dat %>% 
-  subset(context == "Military tactical planning")
-
-
-# fitting multilevel model
-mlma_m <- conduct_mlma(dat = df_military, rho = rho)
-mlma_m <- robust(mlma_m, cluster = study_id_1, clubSandwich = TRUE)
-  
-
-### Risky driving
-df_risky <- dat %>% 
-  subset(context == "Risky driving")
-
-
-# fitting multilevel model
-mlma_rd <- conduct_mlma(dat = df_risky, rho = rho)
-mlma_rd <- robust(mlma_rd, cluster = study_id_1, clubSandwich = TRUE)
-
-mlma_rd
-  
-### Smart phone use
-df_phone <- dat %>% 
-  subset(context == "Smartphone use")
-
-
-# fitting multilevel model
-mlma_sp <- conduct_mlma(dat = df_phone, rho = rho)
-mlma_sp <- robust(mlma_sp, cluster = study_id_1, clubSandwich = TRUE)
-
-mlma_sp
-
-### Stressful situations
-df_stress <- dat %>% 
-  subset(context == "Stressful situations")
-
-
-# fitting multilevel model
-mlma_sp <- conduct_mlma(dat = df_stress, rho = rho)
-mlma_sp <- robust(mlma_sp, cluster = study_id_1, clubSandwich = TRUE)
-
-mlma_sp
-
-
-### Workplace email #### ONLY 1 EFFECT SIZE #####
-df_email <- dat %>% 
-  subset(context == "Workplace email use")
-
-
-# fitting multilevel model
-mlma_em <- conduct_mlma(dat = df_email, rho = rho)
-mlma_em <- robust(mlma_em, cluster = study_id_1, clubSandwich = TRUE)
-mlma_me
-
-
-# If sig, do equivalence test.
-
-```
-
-### Main effects model
+### Extend mlma with sig moderators
 ```{r}
 
 # transform data into an escalc object
-dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat )
+rho = .5
+dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat)
+dat$study_id <- as.character(dat$study_id_1)
+dat$es_id <- as.character(dat$es_id)
+  
+### create approx. V matrix assuming that the effect sizes within studies
+###  are correlated with a correlation coefficient of value 'rho'
+V_mat <- vcalc(vi = vi,
+                 cluster = study_id_1,
+                 obs = es_id,
+                 data = dat,
+                 rho = rho)
+  
+multiplemoderator <- rma.mv(yi ~ 1 + context + cor_type,
+                   V = V_mat,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+multiplemoderator <- robust(multiplemoderator, cluster = study_id_1, clubSandwich = TRUE)
 
-res.a1 <- rma(yi, vi, mods = ~ age_diff_gmc + prop_female_gen +
-                culture_powerdistance_gmc + culture_individualism_gmc +
-                culture_mtas_gmc + culture_uncertaintyavoidance_gmc +
-                culture_longtermorientation_gmc + culture_indulgence_gmc +
-                dv + context + year_of_publication, data=dat)
+write_rds(multiplemoderator, file = "mlma_multiplemoderator.rds")
 
-res.a1
+### Cannot run equivalence tests due to small study numbers
+### Military context has no in between level
+### Workplace email has no in between or within levels
+
 
 ```
 
