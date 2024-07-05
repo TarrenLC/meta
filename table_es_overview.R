@@ -1,3 +1,13 @@
+#' `table_es_pref_overview()` creates table with an overview of the effect sizes 
+#' with the number of participants, number of effect sizes, number of studies and publication year range
+#' @param dat data frame containing effect sizes
+#' @returns a data frame with a summary information.
+#' @examples
+#' table_es_pref_overview(dat = read_csv("effect_sizes.csv))
+
+#library(tidyverse)  # for data wrangling 
+
+# Adapted from https://github.com/cdsbasel/cumulative/blob/main/code/functions/table_es_pref_overview.R
 
 table_es_overview <- function(dat) {
   

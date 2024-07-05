@@ -6,7 +6,7 @@
 #' @examples
 #' plot_forestplot_ma(m = read_rds("mlma_%s.rds"))
 
-
+# Adapted from https://github.com/cdsbasel/cumulative/blob/main/code/functions/plot_forestplot_ma.R
 
 # PACKAGES ----------------------------------------------------------------
 
@@ -100,22 +100,22 @@ plot_forestplot_ma <- function(m) {
     # add titles and labels
     geom_text(data = study_text, aes(x = x, y = y, label = label), 
               vjust = .5, hjust = 1,
-              color = "grey15", family = "Arial", size = 1.75) +
+              color = "grey15", family = "Arial", size = 2.5) +
     geom_text(data = knum_text, aes(x = x, y = y, label = label), 
               vjust = .5, hjust = .5,
-              color = "grey15", family = "Arial", size = 1.75) +
+              color = "grey15", family = "Arial", size = 2.5) +
     geom_text(data = estim_text, aes(x = x, y = y, label = label),
               vjust = .5, hjust = 0,
-              color = "grey15", family = "Arial", size = 1.75) +
+              color = "grey15", family = "Arial", size = 2.5) +
     geom_text(data = ci_text, aes(x = x, y = y, label = label),
               vjust = .5, hjust = 0,
-              color = "grey15", family = "Arial", size = 1.75) +
+              color = "grey15", family = "Arial", size = 2.5) +
     geom_text(data = pooled_text, aes(x = x, y = y, label = label), 
               hjust = c(1,0,0), color = "grey15", family = "Arial",
-              size = 2.5, fontface = "bold" ) +
+              size = 3, fontface = "bold" ) +
     geom_text(data = title_text, aes(x = x, y = y, label = label), 
               hjust = c(1,0,0), color = "grey15", family = "Arial",
-              size = 2.5, fontface = "bold" ) +
+              size = 3, fontface = "bold" ) +
     # add lines
     geom_segment(data = dat, aes(x = -3.5, y = -.25, xend = 3.5, yend = -.25), 
                  linetype = "solid", color = "grey15", size = 0.5) +

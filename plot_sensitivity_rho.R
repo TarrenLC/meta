@@ -1,4 +1,11 @@
+#' `plot_sensitivity_rho()` creates a forest plot of the pooled estimates 
+#' (study level) when indicating different values of rho when fitting the MLMA.
+#' @param dat a data frame with summary information of the pooled estimates
+#' @returns a ggplot object
+#' @examples
+#' plot_sensitivity_rho(dat = read_rds("mlma.rds")
 
+# Adapted from https://github.com/cdsbasel/cumulative/blob/main/code/functions/plot_sensitivity_rho.R
 
 plot_sensitivity_rho <- function(dat){
   

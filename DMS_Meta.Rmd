@@ -362,9 +362,10 @@ dat$culture_longtermorientation_gmc <- scale(dat$culture_longtermorientation,
                                              scale=FALSE)
 dat$culture_indulgence_gmc <- scale(dat$culture_indulgence, scale=FALSE)
 
-dat$sample_type_1 <- as.factor(dat$sample_type_1)
-
-dat$sample_type_1 <- ordered(dat$sample_type_1, levels = c("University students", "Community", "Convenience", "Professional"))
+dat <- dat %>% 
+  mutate(sample_type_1 = factor(sample_type_1, levels = c("University students",
+                                                          "Community", "Convenience", 
+                                                          "Professional")))
 
 for (rho in rho_vec) {
   
@@ -491,9 +492,11 @@ for (rho in rho_vec) {
   
   m[[9]] <- robust(m[[9]], cluster = study_id_1, clubSandwich = TRUE)
   
+  
+    ## Participant sample type as moderator-----------------------------------------
+  ## University students as reference level
 
-   ## Year of publication as moderator-----------------------------------------
-  m[[10]] <- rma.mv(yi ~ 1 + year_of_publication,
+  m[[10]] <- rma.mv(yi ~ 1 + sample_type_1,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=dat,
@@ -501,16 +504,17 @@ for (rho in rho_vec) {
   
   m[[10]] <- robust(m[[10]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ## Participant sample type as moderator-----------------------------------------
-  ## University students as reference level
 
-  m[[11]] <- rma.mv(yi ~ 1 + sample_type_1,
+   ## Year of publication as moderator-----------------------------------------
+  m[[11]] <- rma.mv(yi ~ 1 + year_of_publication,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=dat,
                    digits=4)
   
   m[[11]] <- robust(m[[11]], cluster = study_id_1, clubSandwich = TRUE)
+  
+
   
  
    # expand the list of models in a tidy format
@@ -558,7 +562,7 @@ df_format <- df %>%
 
 print("Meta-regression results with effect sizes saved")
 
-                   
+
 ```
  
 
@@ -591,35 +595,61 @@ covariates <- c("sample_type_1")
 
 ```
 
-### Extend mlma with sig moderators
+### Separate analyses on participant sample type
 ```{r}
 
-# transform data into an escalc object
 rho = .5
-dat <- escalc(yi = cor_yi, vi = cor_vi, data = dat)
-dat$study_id <- as.character(dat$study_id_1)
-dat$es_id <- as.character(dat$es_id)
+
+table(dat$sample_type_1)
+
+
+types <- c("Community", "Convenience", "Professional", "University students")
+
+for (typ in types) {
   
-### create approx. V matrix assuming that the effect sizes within studies
-###  are correlated with a correlation coefficient of value 'rho'
-V_mat <- vcalc(vi = vi,
-                 cluster = study_id_1,
-                 obs = es_id,
-                 data = dat,
-                 rho = rho)
+  # filter effect size datasets
+  sdat <- dat %>% filter(sample_type_1 %in% typ) 
   
-multiplemoderator <- rma.mv(yi ~ 1 + sample_type_1,
-                   V = V_mat,
-                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
-                   data=dat,
-                   digits=4)
   
-multiplemoderator <- robust(multiplemoderator, cluster = study_id_1, clubSandwich = TRUE)
+  # fitting multilevel model
+  mlma_mod <- conduct_mlma(dat = sdat, rho = rho)
+  mlma_mod <- robust(mlma_mod, cluster = study_id_1, clubSandwich = TRUE)
+  
+  
+  # save output
+  write_rds(mlma_mod, sprintf("mlma_%s.rds", typ))
+}
 
-write_rds(multiplemoderator, file = "mlma_multiplemoderator.rds")
+
+```
 
 
+### Moderator equivalence test
+```{r}
 
+types <- c("Community", "Convenience", "Professional", "University students")
+
+for (typ in types) {
+  
+  m <- read_rds(sprintf("mlma_%s.rds", typ))
+                
+  mod_se <- m$se
+  es_mod <- m$b[1]
+  
+  t_mod <- TOSTmeta(ES = es_mod,
+                se = mod_se,
+                low_eqbound_d = -0.1,
+                high_eqbound_d = 0.1,
+                alpha=0.05)
+  
+   # save output
+  write_rds(t_mod, sprintf("equivalence_test_%s.rds", typ))
+
+}
+
+plot_equivalence_test(m_file_list = c("mlma_Convenience.rds", "mlma_Community.rds",
+                                      "mlma_Professional.rds",  "mlma_University students.rds"), low_eq = -.1, high_eq = .1)
+  
 
 ```
 
@@ -646,7 +676,7 @@ dat %>% group_by(first_author)
 
 dat$sei <- sqrt(dat$cor_vi)
 
-newdata <- select(dat, study_id_1, es_id, first_author, yi, sei, vi)
+newdata <- select(dat, study_id_1, es_id, first_author, cor_yi, sei, cor_vi)
 
 attach(newdata)
 
@@ -656,7 +686,7 @@ names<-newdata[,c("study_id_1","first_author")]
 duplicated(names)
 names1<-names[!duplicated(names), ]
 names1<-unique(names)
-data1<-agg(id=study_id_1,es=yi,var=vi,method="BHHR",cor= 1.0,mod=NULL, data=dat)
+data1<-agg(id=study_id_1,es=cor_yi,var=cor_vi,method="BHHR",cor= 1.0,mod=NULL, data=dat)
 
 print(data1)
 #export to excelwrite.table(data1, file = "data1.csv", sep=",")d
@@ -723,5 +753,4 @@ power1_plot
 
 
 ```
-
 
