@@ -126,7 +126,7 @@ compute_es <- function(data) {
            dv, analysis,
            culture_powerdistance, culture_individualism, culture_mtas,
            culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
-           culture_indulgence, context, sample_type, groups, analysis, total_number_of_participants_study_1,
+           culture_indulgence, sample_type_1, groups, analysis, total_number_of_participants_study_1,
            number_of_older_adults_categorical_var_study_1, number_of_young_adults_categorical_var_study_1,
            gender_female_value,
            age_m_young_adults, age_m_older_adults, age_m_value, 

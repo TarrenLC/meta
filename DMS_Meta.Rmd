@@ -73,8 +73,6 @@ df1 <- df1 %>% rename(country = country_in_which_the_study_conducted)
 
 df1$country<-gsub("Other:","",as.character(df1$country))
 
-df1 <- df1 %>% rename(context = topic_of_decision_important_general_unknown_etc_study_1)
-
 df1 <- df1 %>% rename(measure = type_of_avoidant_decision_making_measure_study_1)
 
 df1 <- df1 %>% rename(sample_type = population_description_study_1)
@@ -82,6 +80,22 @@ df1 <- df1 %>% rename(sample_type = population_description_study_1)
 df1 <- df1 %>% rename(analysis = analysis_type_study_1_avoidant_dv)
 
 df1 <- df1 %>% mutate_all(na_if, "")
+
+df1$sample_type <- as.factor(df1$sample_type)
+
+df1$sample_type_1 <- gsub('Australian Regular Army junior officers', 'Professional', df1$sample_type)
+
+df1$sample_type_1 <- gsub('Entrepreneurs', 'Professional', df1$sample_type_1)
+
+df1$sample_type_1 <- gsub('Nursing managers', 'Professional', df1$sample_type_1)
+
+df1$sample_type_1 <- gsub('Managers', 'Professional', df1$sample_type_1)
+
+df1$sample_type_1 <- gsub('Workers', 'Professional', df1$sample_type_1)
+
+df1$sample_type_1 <- gsub('Majority community', 'Community', df1$sample_type_1)
+
+df1$sample_type_1 <- gsub('Convenience - Online study', 'Convenience', df1$sample_type_1)
 
 write.csv(df1, file = "prepped_meta_data.csv")
 
@@ -127,7 +141,7 @@ dat %>%
   ggtitle("Sample")
 
 dat %>% 
-  ggplot(aes(x= dec_diff)) + 
+  ggplot(aes(x= age_diff)) + 
   geom_density() +
   theme_bw() +
   ggtitle("Sample age Differences (decades)")
@@ -348,6 +362,10 @@ dat$culture_longtermorientation_gmc <- scale(dat$culture_longtermorientation,
                                              scale=FALSE)
 dat$culture_indulgence_gmc <- scale(dat$culture_indulgence, scale=FALSE)
 
+dat$sample_type_1 <- as.factor(dat$sample_type_1)
+
+dat$sample_type_1 <- ordered(dat$sample_type_1, levels = c("University students", "Community", "Convenience", "Professional"))
+
 for (rho in rho_vec) {
   
   # create approx. V matrix assuming that the effect sizes within studies are correlated with a correlation coefficient of value 'rho'
@@ -372,16 +390,6 @@ for (rho in rho_vec) {
   m[[1]] <- robust(m[[1]], cluster = study_id_1, clubSandwich = TRUE)
 
   
-   ## ES metric as moderator----------------------------------------------------
-  ## No reference level
-  m[[2]] <- rma.mv(yi ~ 0 + cor_type,
-                   V = V_mat,
-                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
-                   data=dat,
-                   digits=4)
-  
-  m[[2]] <- robust(m[[2]], cluster = study_id_1, clubSandwich = TRUE)
- 
   ## Females--------------------------------------------------------------------
   ### for extreme group design studies we calculate average prop. of females in the sample (weighted average).
   ###  some studies are removed due to missing gender information
@@ -391,13 +399,13 @@ for (rho in rho_vec) {
              case_when(!is.na(gender_female_value) ~ gender_female_value)) %>% 
     ungroup()
   
-  m[[3]] <- rma.mv(yi ~ 1 + prop_female_gen,
+  m[[2]] <- rma.mv(yi ~ 1 + prop_female_gen,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=dat,
                    digits=4)
   
-  m[[3]] <- robust(m[[3]], cluster = study_id_1, clubSandwich = TRUE)
+  m[[2]] <- robust(m[[2]], cluster = study_id_1, clubSandwich = TRUE)
   
   ## Culture - Power distance as moderator-------------------------------------
   
@@ -412,7 +420,18 @@ for (rho in rho_vec) {
                   data = datb, 
                   rho = rho)
   
-  m[[4]] <- rma.mv(yi ~ 1 + culture_powerdistance_gmc,
+  m[[3]] <- rma.mv(yi ~ 1 + culture_powerdistance_gmc,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=datb,
+                   digits=4)
+  
+  m[[3]] <- robust(m[[3]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  
+  ## Culture - Individualism as moderator--------------------------------------
+
+  m[[4]] <- rma.mv(yi ~ 1 + culture_individualism_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -420,10 +439,9 @@ for (rho in rho_vec) {
   
   m[[4]] <- robust(m[[4]], cluster = study_id_1, clubSandwich = TRUE)
   
-  
-  ## Culture - Individualism as moderator--------------------------------------
+  ## Culture - MTAS as moderator-----------------------------------------------
 
-  m[[5]] <- rma.mv(yi ~ 1 + culture_individualism_gmc,
+  m[[5]] <- rma.mv(yi ~ 1 + culture_mtas_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -431,9 +449,9 @@ for (rho in rho_vec) {
   
   m[[5]] <- robust(m[[5]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ## Culture - MTAS as moderator-----------------------------------------------
+  ## Culture - Uncertainty avoidance as moderator--------------------------------------
 
-  m[[6]] <- rma.mv(yi ~ 1 + culture_mtas_gmc,
+  m[[6]] <- rma.mv(yi ~ 1 + culture_uncertaintyavoidance_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -441,9 +459,10 @@ for (rho in rho_vec) {
   
   m[[6]] <- robust(m[[6]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ## Culture - Uncertainty avoidance as moderator--------------------------------------
+  ## Culture - Long-term orientation as moderator--------------------------------------
 
-  m[[7]] <- rma.mv(yi ~ 1 + culture_uncertaintyavoidance_gmc,
+  
+  m[[7]] <- rma.mv(yi ~ 1 + culture_longtermorientation_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
@@ -451,31 +470,30 @@ for (rho in rho_vec) {
   
   m[[7]] <- robust(m[[7]], cluster = study_id_1, clubSandwich = TRUE)
   
-  ## Culture - Long-term orientation as moderator--------------------------------------
+  ## Culture - Indulgence as moderator--------------------------------------
 
-  
-  m[[8]] <- rma.mv(yi ~ 1 + culture_longtermorientation_gmc,
+  m[[8]] <- rma.mv(yi ~ 1 + culture_indulgence_gmc,
                    V = V_matb,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=datb,
                    digits=4)
   
   m[[8]] <- robust(m[[8]], cluster = study_id_1, clubSandwich = TRUE)
-  
-  ## Culture - Indulgence as moderator--------------------------------------
-
-  m[[9]] <- rma.mv(yi ~ 1 + culture_indulgence_gmc,
-                   V = V_matb,
-                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
-                   data=datb,
-                   digits=4)
-  
-  m[[9]] <- robust(m[[9]], cluster = study_id_1, clubSandwich = TRUE)
 
   
   ## Decision-style outcome as moderator-----------------------------------------
   ## Avoidant as reference level
-  m[[10]] <- rma.mv(yi ~ 1 + dv,
+  m[[9]] <- rma.mv(yi ~ 1 + dv,
+                   V = V_mat,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+  m[[9]] <- robust(m[[9]], cluster = study_id_1, clubSandwich = TRUE)
+  
+
+   ## Year of publication as moderator-----------------------------------------
+  m[[10]] <- rma.mv(yi ~ 1 + year_of_publication,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=dat,
@@ -483,26 +501,16 @@ for (rho in rho_vec) {
   
   m[[10]] <- robust(m[[10]], cluster = study_id_1, clubSandwich = TRUE)
   
+  ## Participant sample type as moderator-----------------------------------------
+  ## University students as reference level
 
-   ## Year of publication as moderator-----------------------------------------
-  m[[11]] <- rma.mv(yi ~ 1 + year_of_publication,
+  m[[11]] <- rma.mv(yi ~ 1 + sample_type_1,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=dat,
                    digits=4)
   
   m[[11]] <- robust(m[[11]], cluster = study_id_1, clubSandwich = TRUE)
-  
-  ## Decision context of study as moderator-----------------------------------------
-  ## General as reference level
-
-  m[[12]] <- rma.mv(yi ~ 1 + context,
-                   V = V_mat,
-                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
-                   data=dat,
-                   digits=4)
-  
-  m[[12]] <- robust(m[[12]], cluster = study_id_1, clubSandwich = TRUE)
   
  
    # expand the list of models in a tidy format
@@ -550,21 +558,14 @@ df_format <- df %>%
 
 print("Meta-regression results with effect sizes saved")
 
-  
-  
-
-
-
-
-
-
+                   
 ```
  
 
 ### Covariates
 ```{r}
 
-covariates <- c("cor_type", "context")
+covariates <- c("sample_type_1")
 
 # read effect size datasets
   dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
@@ -607,7 +608,7 @@ V_mat <- vcalc(vi = vi,
                  data = dat,
                  rho = rho)
   
-multiplemoderator <- rma.mv(yi ~ 1 + context + cor_type,
+multiplemoderator <- rma.mv(yi ~ 1 + sample_type_1,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=dat,
@@ -617,9 +618,7 @@ multiplemoderator <- robust(multiplemoderator, cluster = study_id_1, clubSandwic
 
 write_rds(multiplemoderator, file = "mlma_multiplemoderator.rds")
 
-### Cannot run equivalence tests due to small study numbers
-### Military context has no in between level
-### Workplace email has no in between or within levels
+
 
 
 ```
