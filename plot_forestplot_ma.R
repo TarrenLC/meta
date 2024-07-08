@@ -22,26 +22,13 @@ plot_forestplot_ma <- function(m) {
   m_data <- m$data
   
 
-  #colors
-  fill_col <- "#2AB7CA"
-
-  
-  
-  ## for visualization purposes, aggregate effect sizes using the vcov matrix
-  ### aggregating effect sizes by study (i.e., study label)
-  agg_dat <- aggregate(m_data,
-                       cluster=study_id_1,
-                       V=vcov(m, type="obs"), #returns the marginal variance-covariance matrix of the observed effect sizes or outcomes
-                       addk=TRUE) # count number of ES by study (only available in devel version!)
-  
-  
-  
-  # plot data
-  dat <- agg_dat %>% 
-    arrange(year) %>% 
+  # plot data sorted by yi (smallest to largest)
+  dat <- m_data %>% 
+    arrange(yi) %>% 
     mutate(y = -(1:n()),
-           ci.lb = yi - (sqrt(vi)*1.96),
-           ci.ub = yi + (sqrt(vi)*1.96)) 
+           ci.lb = yi - (sqrt(vi) * 1.96),
+           ci.ub = yi + (sqrt(vi) * 1.96)) 
+
   
   # pooled estimate data to draw polygon
   pooled_es <- tibble(x = c(m$ci.ub, m$b[1], m$ci.lb, m$b[1]),
@@ -51,7 +38,7 @@ plot_forestplot_ma <- function(m) {
   
   # study labels
   study_text <-  dat %>% 
-    mutate(label = study_id) %>% 
+    mutate(label = plot_studyid) %>% 
     select(y, label) %>%
     mutate(x = -2)
   
@@ -68,18 +55,11 @@ plot_forestplot_ma <- function(m) {
     select(y, label) %>%
     mutate(x = 2.35)
   
-  #number of estimates per study 
-  knum_text <- dat %>% 
-    mutate(label = as.character(ki)) %>% 
-    select(y, label) %>%
-    mutate(x = -1.8)
-  
-  
-  
+
   # title labels
-  title_text <- tibble(x = unique(c(study_text$x,knum_text$x,estim_text$x)),
+  title_text <- tibble(x = unique(c(study_text$x,estim_text$x)),
                        y = 0.5,
-                       label = c("Study", "k", "Estimate [95% CI]"))
+                       label = c("Study", "Estimate [95% CI]"))
   
   
   # pooled se labels
@@ -101,9 +81,6 @@ plot_forestplot_ma <- function(m) {
     geom_text(data = study_text, aes(x = x, y = y, label = label), 
               vjust = .5, hjust = 1,
               color = "grey15", family = "Arial", size = 2.5) +
-    geom_text(data = knum_text, aes(x = x, y = y, label = label), 
-              vjust = .5, hjust = .5,
-              color = "grey15", family = "Arial", size = 2.5) +
     geom_text(data = estim_text, aes(x = x, y = y, label = label),
               vjust = .5, hjust = 0,
               color = "grey15", family = "Arial", size = 2.5) +
@@ -111,10 +88,10 @@ plot_forestplot_ma <- function(m) {
               vjust = .5, hjust = 0,
               color = "grey15", family = "Arial", size = 2.5) +
     geom_text(data = pooled_text, aes(x = x, y = y, label = label), 
-              hjust = c(1,0,0), color = "grey15", family = "Arial",
+              hjust = 0, color = "grey15", family = "Arial",
               size = 3, fontface = "bold" ) +
     geom_text(data = title_text, aes(x = x, y = y, label = label), 
-              hjust = c(1,0,0), color = "grey15", family = "Arial",
+              hjust = 0, color = "grey15", family = "Arial",
               size = 3, fontface = "bold" ) +
     # add lines
     geom_segment(data = dat, aes(x = -3.5, y = -.25, xend = 3.5, yend = -.25), 
@@ -127,7 +104,7 @@ plot_forestplot_ma <- function(m) {
     geom_errorbarh(data = dat, aes(y= y, xmin=ci.lb, xmax=ci.ub),
                    height = 0.25, color = "grey15", size = 0.5) +
     geom_point(data = dat, aes(y= y, x= yi),
-               shape = 21, size = 1, color = "grey15", stroke = .75, fill = fill_col)+ 
+               shape = 21, size = 1, color = "grey15", stroke = .75, fill = "#2AB7CA")+ 
     #  add pooled se
     geom_polygon(data = pooled_es, aes(x = x, y = y)) +
     theme_minimal() +

@@ -64,9 +64,9 @@ compute_es <- function(data) {
   cor_dat <-  cor_dat %>% 
     # calculate age difference in years
     mutate(age_min = case_when(analysis == "Both" ~ as.numeric(min_age_young),
-                               TRUE ~ min_age), # in case age min/max info is unavailable
+                               TRUE ~ min_age), 
            age_max = case_when(analysis == "Both" ~ as.numeric(max_age_older),
-                               TRUE ~ as.numeric(max_age)),   # in case age min/max info is unavailable
+                               TRUE ~ as.numeric(max_age)),  
            cor_type = "COR",
            study_design = case_when(analysis == "Both" ~"extreme_group",
                                     analysis == "Corrleation" ~ "continuous")) %>% 
@@ -91,18 +91,15 @@ compute_es <- function(data) {
   # Reverse effect sizes
   es <- es %>%  
     group_by(study_id) %>% 
-    # assign a number to each study
     mutate(study_id_1 = cur_group_id()) %>% 
     ungroup() %>% 
     rowwise() %>% 
-    mutate(reversed_es = case_when(!is.na(young_adults_dv_mean) 
-                                   & !is.na(older_adults_dv_mean) &
+    mutate(reversed_es = case_when(analysis == "Ms and SDs" &
                                      young_adults_dv_mean > older_adults_dv_mean ~ 1,
                                    !is.na(dv_age_result) & dv_age_result < 0 ~ 1,
-                                   TRUE ~ 0))
-  
-  es <- es %>%
-    mutate(cor_yi = ifelse(reversed_es == 1, cor_yi * -1, cor_yi))
+                                   TRUE ~ 0),
+           cor_yi = ifelse(reversed_es == 1, cor_yi * -1, cor_yi)) %>% 
+    ungroup()
   
   #  }
   

@@ -95,8 +95,6 @@ df1$sample_type_1 <- gsub('Workers', 'Professional', df1$sample_type_1)
 
 df1$sample_type_1 <- gsub('Majority community', 'Community', df1$sample_type_1)
 
-df1$sample_type_1 <- gsub('Convenience - Online study', 'Convenience', df1$sample_type_1)
-
 write.csv(df1, file = "prepped_meta_data.csv")
 
 ```
@@ -169,6 +167,10 @@ rho = .5
 
   # read effect size datasets
   dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
+  
+  # add a column for plotting study label later
+  dat$plot_studyid <- gsub('Group1', 'Study1', dat$study_id)
+  dat$plot_studyid <- gsub('Group2', 'Study1', dat$plot_studyid)
   
   # fitting multilevel model
   mlma <- conduct_mlma(dat = dat, rho = rho)
@@ -336,6 +338,7 @@ plot_sensitivity_rho(dat = read_rds("overall_sensitivity_rho.rds"))
 ## Forest plot
 ```{r}
 
+
 plot_forestplot_ma(m = read_rds("mlma_%s.rds"))
 
 mlma
@@ -496,7 +499,7 @@ for (rho in rho_vec) {
     ## Participant sample type as moderator-----------------------------------------
   ## University students as reference level
 
-  m[[10]] <- rma.mv(yi ~ 1 + sample_type_1,
+  m[[10]] <- rma.mv(yi ~ 0 + sample_type_1,
                    V = V_mat,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
                    data=dat,
@@ -595,31 +598,26 @@ covariates <- c("sample_type_1")
 
 ```
 
-### Separate analyses on participant sample type
+### Contrast analyses on participant sample type
 ```{r}
 
-rho = .5
+V_mat <- vcalc(vi = vi,
+                 cluster = study_id_1,
+                 obs = es_id,
+                 data = dat,
+                 rho = .5)
 
-table(dat$sample_type_1)
+moderator <- rma.mv(yi ~ 0 + sample_type_1,
+                   V = V_mat,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat,
+                   digits=4)
+  
+moderator <- robust(moderator, cluster = study_id_1, clubSandwich = TRUE)
 
+# Pairwise differences
 
-types <- c("Community", "Convenience", "Professional", "University students")
-
-for (typ in types) {
-  
-  # filter effect size datasets
-  sdat <- dat %>% filter(sample_type_1 %in% typ) 
-  
-  
-  # fitting multilevel model
-  mlma_mod <- conduct_mlma(dat = sdat, rho = rho)
-  mlma_mod <- robust(mlma_mod, cluster = study_id_1, clubSandwich = TRUE)
-  
-  
-  # save output
-  write_rds(mlma_mod, sprintf("mlma_%s.rds", typ))
-}
-
+anova(moderator, X=rbind(c(-1,1,0),c(-1,0,1), c(0,-1,1))) ### Need to double check this.
 
 ```
 
@@ -627,7 +625,7 @@ for (typ in types) {
 ### Moderator equivalence test
 ```{r}
 
-types <- c("Community", "Convenience", "Professional", "University students")
+types <- c("Community", "Professional", "University students")
 
 for (typ in types) {
   
@@ -647,7 +645,7 @@ for (typ in types) {
 
 }
 
-plot_equivalence_test(m_file_list = c("mlma_Convenience.rds", "mlma_Community.rds",
+plot_equivalence_test(m_file_list = c("mlma_Community.rds",
                                       "mlma_Professional.rds",  "mlma_University students.rds"), low_eq = -.1, high_eq = .1)
   
 
