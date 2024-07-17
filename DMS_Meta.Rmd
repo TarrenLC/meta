@@ -177,12 +177,11 @@ rho = .5
   mlma <- robust(mlma, cluster = study_id_1, clubSandwich = TRUE)
   
   # save output
-  write_rds(mlma, "mlma_%s.rds")
+  write_rds(mlma, "mlma.rds")
 
   mlma
   
 
-  
 ```
 
 
@@ -367,8 +366,7 @@ dat$culture_indulgence_gmc <- scale(dat$culture_indulgence, scale=FALSE)
 
 dat <- dat %>% 
   mutate(sample_type_1 = factor(sample_type_1, levels = c("University students",
-                                                          "Community", "Convenience", 
-                                                          "Professional")))
+                                                          "Community", "Professional")))
 
 for (rho in rho_vec) {
   
@@ -568,6 +566,230 @@ print("Meta-regression results with effect sizes saved")
 
 ```
  
+ 
+### Moderators without outliers
+```{r}
+
+dat_out <- dat[-c(1,2),]
+
+# transform data into an escalc object
+dat_out <- escalc(yi = cor_yi, vi = cor_vi, data = dat_out )
+df_out <- NULL
+rho_vec_out <- seq(from = .1, to = .9, by = .1)
+
+# Center age range moderator
+dat_out$age_diff_gmc <- scale(dat_out$age_diff, scale=FALSE)
+dat_out$culture_individualism_gmc <- scale(dat_out$culture_individualism, scale=FALSE)
+dat_out$culture_powerdistance_gmc <- scale(dat_out$culture_powerdistance, scale=FALSE)
+dat_out$culture_mtas_gmc <- scale(dat_out$culture_mtas, scale=FALSE)
+dat_out$culture_uncertaintyavoidance_gmc <- scale(dat_out$culture_uncertaintyavoidance, 
+                                              scale=FALSE)
+dat_out$culture_longtermorientation_gmc <- scale(dat_out$culture_longtermorientation, 
+                                             scale=FALSE)
+dat_out$culture_indulgence_gmc <- scale(dat_out$culture_indulgence, scale=FALSE)
+
+dat_out <- dat_out %>% 
+  mutate(sample_type_1 = factor(sample_type_1, levels = c("University students",
+                                                          "Community",
+                                                          "Professional")))
+
+for (rho in rho_vec_out) {
+  
+  # create approx. V matrix assuming that the effect sizes within studies are correlated with a correlation coefficient of value 'rho'
+  V_mat_out <- vcalc(vi = vi,
+                 cluster = study_id_1,
+                 obs = es_id,
+                 data = dat_out,
+                 rho = rho)
+  
+  m <- list()
+  
+  
+  # fit multilevel models using approximate V matrix
+  ## age range in decades as moderator------------------------------------------
+  ### some studies are removed due to missing age information
+  m[[1]] <- rma.mv(yi ~ 1 + age_diff_gmc,
+                   V = V_mat_out,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_out,
+                   digits=4)
+  
+  m[[1]] <- robust(m[[1]], cluster = study_id_1, clubSandwich = TRUE)
+
+  
+  ## Females--------------------------------------------------------------------
+  ### for extreme group design studies we calculate average prop. of females in the sample (weighted average).
+  ###  some studies are removed due to missing gender information
+  dat_out <- dat_out %>% 
+    rowwise() %>% 
+    mutate(prop_female_gen = 
+             case_when(!is.na(gender_female_value) ~ gender_female_value)) %>% 
+    ungroup()
+  
+  m[[2]] <- rma.mv(yi ~ 1 + prop_female_gen,
+                   V = V_mat_out,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_out,
+                   digits=4)
+  
+  m[[2]] <- robust(m[[2]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ## Culture - Power distance as moderator-------------------------------------
+  
+  # Exclude NA
+  dat_outb <- dat_out[!(is.na(dat_out$culture_powerdistance)),] # exclude NA
+  dat_outb$study_id_1 <- as.factor(dat_outb$study_id_1)
+  dat_outb$es_id <- as.factor(dat_outb$es_id)
+  
+  V_matb <- vcalc(vi = vi,
+                  cluster = study_id_1,
+                  obs = es_id,
+                  data = dat_outb, 
+                  rho = rho)
+  
+  m[[3]] <- rma.mv(yi ~ 1 + culture_powerdistance_gmc,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_outb,
+                   digits=4)
+  
+  m[[3]] <- robust(m[[3]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  
+  ## Culture - Individualism as moderator--------------------------------------
+
+  m[[4]] <- rma.mv(yi ~ 1 + culture_individualism_gmc,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_outb,
+                   digits=4)
+  
+  m[[4]] <- robust(m[[4]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ## Culture - MTAS as moderator-----------------------------------------------
+
+  m[[5]] <- rma.mv(yi ~ 1 + culture_mtas_gmc,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_outb,
+                   digits=4)
+  
+  m[[5]] <- robust(m[[5]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ## Culture - Uncertainty avoidance as moderator--------------------------------------
+
+  m[[6]] <- rma.mv(yi ~ 1 + culture_uncertaintyavoidance_gmc,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_outb,
+                   digits=4)
+  
+  m[[6]] <- robust(m[[6]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ## Culture - Long-term orientation as moderator--------------------------------------
+
+  
+  m[[7]] <- rma.mv(yi ~ 1 + culture_longtermorientation_gmc,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_outb,
+                   digits=4)
+  
+  m[[7]] <- robust(m[[7]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  ## Culture - Indulgence as moderator--------------------------------------
+
+  m[[8]] <- rma.mv(yi ~ 1 + culture_indulgence_gmc,
+                   V = V_matb,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_outb,
+                   digits=4)
+  
+  m[[8]] <- robust(m[[8]], cluster = study_id_1, clubSandwich = TRUE)
+
+  
+  ## Decision-style outcome as moderator-----------------------------------------
+  ## Avoidant as reference level
+  m[[9]] <- rma.mv(yi ~ 1 + dv,
+                   V = V_mat_out,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_out,
+                   digits=4)
+  
+  m[[9]] <- robust(m[[9]], cluster = study_id_1, clubSandwich = TRUE)
+  
+  
+    ## Participant sample type as moderator-----------------------------------------
+  ## University students as reference level
+
+  m[[10]] <- rma.mv(yi ~ 0 + sample_type_1,
+                   V = V_mat_out,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_out,
+                   digits=4)
+  
+  m[[10]] <- robust(m[[10]], cluster = study_id_1, clubSandwich = TRUE)
+  
+
+   ## Year of publication as moderator-----------------------------------------
+  m[[11]] <- rma.mv(yi ~ 1 + year_of_publication,
+                   V = V_mat_out,
+                   random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
+                   data=dat_out,
+                   digits=4)
+  
+  m[[11]] <- robust(m[[11]], cluster = study_id_1, clubSandwich = TRUE)
+  
+
+  
+ 
+   # expand the list of models in a tidy format
+  meta_reg_out_df <- NULL
+  for (i in 1:length(m)) {
+    
+    res_out <- m[[i]]
+    # could also use broom::tidy()
+    res_df_out <- tibble(reg_num = i,
+                     moderator = rownames(res_out$b),
+                     estimate = res_out$b[,1],
+                     se = res_out$se,
+                     tval = res_out$zval,
+                     ci_lb = res_out$ci.lb,
+                     ci_ub = res_out$ci.ub,
+                     pval = res_out$pval)
+    
+    
+    meta_reg_out_df <- bind_rows(meta_reg_out_df,res_df_out)
+    
+    
+    
+  }
+  
+  meta_reg_out_df <- meta_reg_out_df %>% mutate(rho = rho)
+  df_out <- df_out %>% bind_rows(meta_reg_out_df) %>% 
+    mutate_if(is.numeric, round, 3)  %>% 
+    write_csv("meta_reg_out.csv")
+  
+  }
+
+
+df_format_out <- df_out %>%
+  mutate_if(is.numeric, as.character)  %>% 
+  filter(moderator != "intrcpt") %>% 
+  filter(rho == .5) %>%
+  mutate(reg_num = reg_num,
+         est = estimate,
+         se = se,
+         tval = tval,
+         pval = pval,
+         ci95 = paste0(" [", ci_lb, ", ", ci_ub,"]"))  %>%
+  select(moderator, est,se,tval, pval, ci95) %>% 
+  write_csv("meta_reg_out_format.csv")
+
+print("Meta-regression results with effect sizes saved")
+
+```
+
 
 ### Covariates
 ```{r}
