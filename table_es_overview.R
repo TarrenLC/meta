@@ -16,8 +16,8 @@ table_es_overview <- function(dat) {
   
   
   dat_n <- dat %>% 
-    distinct(study_id, n_incl_es, n_incl_es, pub_study) %>% 
-    group_by(study_id) %>%  
+    distinct(study_label, n_incl_es, pub_study) %>% 
+    group_by(study_label) %>%  
     # within studies even if a sample completed the same task, some data points 
     # might go missing, so we select the highest number recorded within a same sample
     filter(n_incl_es == max(n_incl_es)) %>% 

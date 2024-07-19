@@ -38,7 +38,7 @@ plot_forestplot_ma <- function(m) {
   
   # study labels
   study_text <-  dat %>% 
-    mutate(label = plot_studyid) %>% 
+    mutate(label = study_id) %>% 
     select(y, label) %>%
     mutate(x = -2)
   

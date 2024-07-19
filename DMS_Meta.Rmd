@@ -116,9 +116,6 @@ compute_es(df2)
 
 dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
 
-## There are duplicate rows - Unsure why. ## FIXED IT!!
-
-
 
 dat %>% 
   ggplot(aes(x= cor_yi)) + 
@@ -169,8 +166,8 @@ rho = .5
   dat <- read.csv(file = "effect_sizes.csv", header = TRUE)
   
   # add a column for plotting study label later
-  dat$plot_studyid <- gsub('Group1', 'Study1', dat$study_id)
-  dat$plot_studyid <- gsub('Group2', 'Study1', dat$plot_studyid)
+#  dat$plot_studyid <- gsub('Group1', 'Study1', dat$study_id)
+#  dat$plot_studyid <- gsub('Group2', 'Study1', dat$plot_studyid)
   
   # fitting multilevel model
   mlma <- conduct_mlma(dat = dat, rho = rho)
@@ -338,7 +335,7 @@ plot_sensitivity_rho(dat = read_rds("overall_sensitivity_rho.rds"))
 ```{r}
 
 
-plot_forestplot_ma(m = read_rds("mlma_%s.rds"))
+plot_forestplot_ma(m = read_rds("mlma.rds"))
 
 mlma
 
@@ -971,16 +968,17 @@ detach(newdata)
 # Power
 ```{r}
 
+mean(dat$n_incl_es)
 
 power1 <- mpower(effect_size = 0.11,
-                 study_size = 333, # Average of total number of Ps in each study?
+                 study_size = 327, # Average of N of participants in each study
                  k = 35,
                  i2 = 0.90,
                  es_type = "r")
 summary(power1)
 
 power1_plot <- plot_mpower(power1)
-power1_plot <- power1_plot + ggtitle("Power analysis with a total sample size of 333 \nper study")
+power1_plot <- power1_plot + ggtitle("Power analysis with a total sample size of 327 \nper study")
 power1_plot
 
 
