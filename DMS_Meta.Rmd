@@ -37,7 +37,7 @@ source("plot_equivalence_test.R")
 # Clean up data
 ```{r}
 
-data <- read.csv(file = "2024-0520_review_Formatted.csv", header = TRUE)
+data <- read.csv(file = "2024-0520_review_Formatted.csv", header = TRUE, na.strings = "N/A",)
 
 data <- clean_names(data)
 
@@ -79,8 +79,6 @@ df1 <- df1 %>% rename(sample_type = population_description_study_1)
 
 df1 <- df1 %>% rename(analysis = analysis_type_study_1_avoidant_dv)
 
-df1 <- df1 %>% mutate_all(na_if, "")
-
 df1$sample_type <- as.factor(df1$sample_type)
 
 df1$sample_type_1 <- gsub('Australian Regular Army junior officers', 'Professional', df1$sample_type)
@@ -93,7 +91,11 @@ df1$sample_type_1 <- gsub('Managers', 'Professional', df1$sample_type_1)
 
 df1$sample_type_1 <- gsub('Workers', 'Professional', df1$sample_type_1)
 
-df1$sample_type_1 <- gsub('Majority community', 'Community', df1$sample_type_1)
+df1$sample_type_1 <- gsub('Community', df1$sample_type_1)
+
+df1$sample_type_1 <- gsub("University students and community", "", df1$sample_type_1)
+
+df1[df1 == ""] <- NA 
 
 write.csv(df1, file = "prepped_meta_data.csv")
 
@@ -493,11 +495,22 @@ for (rho in rho_vec) {
   
     ## Participant sample type as moderator-----------------------------------------
   ## University students as reference level
+  
+  # Exclude NA
+  datc <- dat[!(is.na(dat$sample_type_1)),] # exclude NA
+  datc$study_id_1 <- as.factor(datc$study_id_1)
+  datc$es_id <- as.factor(datc$es_id)
+  
+  V_matc <- vcalc(vi = vi,
+                  cluster = study_id_1,
+                  obs = es_id,
+                  data = datc, 
+                  rho = rho)
 
   m[[10]] <- rma.mv(yi ~ 0 + sample_type_1,
-                   V = V_mat,
+                   V = V_matc,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
-                   data=dat,
+                   data=datc,
                    digits=4)
   
   m[[10]] <- robust(m[[10]], cluster = study_id_1, clubSandwich = TRUE)
@@ -718,11 +731,22 @@ for (rho in rho_vec_out) {
   
     ## Participant sample type as moderator-----------------------------------------
   ## University students as reference level
+ 
+  # Exclude NA
+  datc <- dat[!(is.na(dat$sample_type_1)),] # exclude NA
+  datc$study_id_1 <- as.factor(datc$study_id_1)
+  datc$es_id <- as.factor(datc$es_id)
+  
+  V_matc <- vcalc(vi = vi,
+                  cluster = study_id_1,
+                  obs = es_id,
+                  data = datc, 
+                  rho = rho)
 
   m[[10]] <- rma.mv(yi ~ 0 + sample_type_1,
-                   V = V_mat_out,
+                   V = V_matc,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
-                   data=dat_out,
+                   data=datc,
                    digits=4)
   
   m[[10]] <- robust(m[[10]], cluster = study_id_1, clubSandwich = TRUE)
@@ -820,31 +844,38 @@ covariates <- c("sample_type_1")
 ### Contrast analyses on participant sample type
 ```{r}
 
-V_mat <- vcalc(vi = vi,
-                 cluster = study_id_1,
-                 obs = es_id,
-                 data = dat,
-                 rho = .5)
+# Exclude NA
+datc <- datc[!(is.na(datc$sample_type_1)),] # exclude NA
+datc$study_id_1 <- as.factor(datc$study_id_1)
+datc$es_id <- as.factor(datc$es_id)
+
+datc <- escalc(yi = cor_yi, vi = cor_vi, data = datc )
+  
+V_matc <- vcalc(vi = vi,
+                cluster = study_id_1,
+                obs = es_id,
+                data = datc, 
+                rho = .5)
 
 moderator <- rma.mv(yi ~ 0 + sample_type_1,
-                   V = V_mat,
+                   V = V_matc,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
-                   data=dat,
+                   data=datc,
                    digits=4)
   
 moderator <- robust(moderator, cluster = study_id_1, clubSandwich = TRUE)
 
 # Pairwise differences
 
-anova(moderator, X=rbind(c(-1,1,0),c(-1,0,1), c(0,-1,1))) ### Need to double check this.
+anova(moderator, X=rbind(c(-1,1,0),c(-1,0,1), c(0,-1,1))) 
 
 
 ### Check pairwise against model with intercept
 
 mod_intercept <- rma.mv(yi ~ 1 + sample_type_1,
-                   V = V_mat,
+                   V = V_matc,
                    random = ~ 1 | study_id_1/es_id, # random effect of study and estimate
-                   data=dat,
+                   data=datc,
                    digits=4)
   
 mod_intercept <- robust(mod_intercept, cluster = study_id_1, clubSandwich = TRUE)

@@ -76,10 +76,10 @@ compute_es <- function(data) {
   
   # bind data frames
   es <- bind_rows(smd_dat, cor_dat) %>%
-    select(study_id, outcome_num, yi, vi, cor_type, age_variable_study_1, age_diff) %>%
+    select(study_label, outcome_num, yi, vi, cor_type, age_variable_study_1, age_diff) %>%
     rename(cor_yi = yi,
            cor_vi = vi) %>% 
-    full_join(df1, by = c("study_id", "outcome_num")) %>% 
+    full_join(df1, by = c("study_label", "outcome_num")) %>% 
     mutate(author_extract = "Leon",
            es_id = 1:n(),  
            # number of participants included in the ES calculation
@@ -90,7 +90,7 @@ compute_es <- function(data) {
   
   # Reverse effect sizes
   es <- es %>%  
-    group_by(study_id) %>% 
+    group_by(study_label, groups) %>% 
     mutate(study_id_1 = cur_group_id()) %>% 
     ungroup() %>% 
     rowwise() %>% 
@@ -115,11 +115,11 @@ compute_es <- function(data) {
   
   
   es_dat <- es %>% 
-    group_by(study_id) %>% 
+    group_by(study_label) %>% 
     mutate(study_es_id = 1:n()) %>% # create id for effect sizes within each study
     ungroup() %>% 
     # assign a number to each study label
-    select(study_id, study_es_id, study_id_1, title, year_of_publication, country, measure, 
+    select(study_id, study_label, study_es_id, study_id_1, title, year_of_publication, country, measure, 
            dv, analysis,
            culture_powerdistance, culture_individualism, culture_mtas,
            culture_uncertaintyavoidance, culture_longtermorientation, culture_longtermorientation,
